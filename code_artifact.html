@@ -43,7 +43,7 @@
             color: #EF4444;
             font-weight: bold;
         }
-        /* 讀題模式正確選項的醒目樣式 */
+        /* 讀題模式正確選項的醫目樣式 */
         .option-read-correct {
             @apply bg-green-100 border-green-500 shadow-sm;
         }
@@ -1132,8 +1132,10 @@
             let userDisplay = '';
             if (q.題型 === '是非題') {
                 userDisplay = userAnswer === 'O' ? '是' : (userAnswer === 'X' ? '非' : '未作答');
+            } else if (Array.isArray(userAnswer)) {
+                userDisplay = userAnswer.length > 0 ? userAnswer.slice().sort().join('、') : '未作答';
             } else {
-                userDisplay = Array.isArray(userAnswer) && userAnswer.length > 0 ? userAnswer.sort().join('、') : '未作答';
+                userDisplay = userAnswer ? userAnswer.toString() : '未作答';
             }
             userAnswerCol.innerHTML = `<span class="text-gray-500 font-medium">您的選擇 (內部編號)：</span><br><span class="font-bold text-gray-800 text-lg">${userDisplay}</span>`;
 
