@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測驗練習應用程式</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .bg-card {
+            background-color: #ffffff;
+        }
+        .btn-primary {
+            @apply bg-blue-500 text-white font-bold py-2 px-4 rounded-full shadow-lg transition duration-300 ease-in-out hover:bg-blue-600;
+        }
+        .btn-secondary {
+            @apply bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-full shadow-md transition duration-300 ease-in-out hover:bg-gray-400;
+        }
+        .btn-correct {
+            background-color: #10B981 !important;
+            color: white !important;
+        }
+        .btn-wrong {
+            background-color: #EF4444 !important;
+            color: white !important;
+        }
+        .result-correct {
+            color: #10B981;
+        }
+        .result-wrong {
+            color: #EF4444;
+        }
+        .timer-red {
+            color: #EF4444;
+            font-weight: bold;
+        }
+        /* 讀題模式正確選項的醒目樣式 */
+        .option-read-correct {
+            @apply bg-green-100 border-green-500 shadow-sm;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+<div id="app" class="container mx-auto p-8 rounded-2xl shadow-xl bg-card my-8">
+    <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">測驗練習應用程式</h1>
+
+    <!-- 設定頁面 -->
+    <div id="settings-page" class="space-y-6">
+        <div>
+            <label for="file-input" class="block text-gray-700 font-medium mb-2">上傳您的題庫檔案 (CSV 或 XLSX)</label>
+            <input type="file" id="file-input" multiple accept=".csv, .xlsx" class="w-full text-gray-700 bg-gray-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+            <label class="block text-gray-700 font-medium mb-2">1. 選擇模式</label>
+            <div class="flex flex-col space-y-3">
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="test-mode" value="exam" checked class="form-radio text-blue-600 w-4 h-4">
+                    <span class="ml-2 text-gray-700 font-medium">測驗模式 <span class="text-gray-500 text-sm font-normal">(全部作答完看結果)</span></span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="test-mode" value="practice" class="form-radio text-blue-600 w-4 h-4">
+                    <span class="ml-2 text-gray-700 font-medium">練習模式 <span class="text-gray-500 text-sm font-normal">(每題作答後即時看對錯與詳解)</span></span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="test-mode" value="read" class="form-radio text-purple-600 w-4 h-4">
+                    <span class="ml-2 text-gray-700 font-medium">讀題模式 <span class="text-gray-500 text-sm font-normal">(單純瀏覽題庫，直接顯示正確答案與詳解)</span></span>
+                </label>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-gray-700 font-medium mb-2">2. 選擇科目</label>
+            <div class="mb-3 flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-4">
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="subject-mode" value="single" checked class="form-radio text-blue-600 w-4 h-4">
+                    <span class="ml-2 text-gray-700 font-medium">單一科目</span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="subject-mode" value="multiple" class="form-radio text-blue-600 w-4 h-4">
+                    <span class="ml-2 text-gray-700 font-medium">多科目合併 <span class="text-gray-500 text-sm font-normal">(自訂比例)</span></span>
+                </label>
+            </div>
+
+            <div id="single-subject-container">
+                <select id="subject-select" class="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">請先上傳檔案</option>
+                </select>
+            </div>
+
+            <div id="multi-subject-container" class="hidden p-4 bg-white rounded-lg border border-gray-200 shadow-sm mt-2">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="font-medium text-gray-700 text-sm">勾選要合併的科目並設定比例：</span>
+                    <button id="even-distribute-btn" class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition">平分比例</button>
+                </div>
+                <div id="multi-subject-list" class="space-y-2 max-h-48 overflow-y-auto mb-3 pr-2">
+                    <!-- 動態產生選項 -->
+                </div>
+                <div class="text-right font-medium text-sm pt-2 border-t border-gray-100">
+                    目前總比例：<span id="total-ratio" class="text-red-600">0</span>%
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-gray-700 font-medium mb-2">3. 選擇題目類型</label>
+            <div class="flex space-x-4">
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="question-type" value="是非題" checked class="form-radio text-blue-600 w-4 h-4">
+                    <span class="ml-2 text-gray-700">是非題</span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="question-type" value="選擇題" class="form-radio text-blue-600 w-4 h-4">
+                    <span class="ml-2 text-gray-700">選擇題</span>
+                </label>
+                <label class="flex items-center cursor-pointer">
+                    <input type="radio" name="question-type" value="混合" class="form-radio text-blue-600 w-4 h-4">
+                    <span class="ml-2 text-gray-700">混合</span>
+                </label>
+            </div>
+
+            <!-- 進階篩選區塊 -->
+            <div id="answer-filter-section" class="mt-3 p-4 bg-blue-50 rounded-lg border border-blue-100 hidden">
+                <label class="block text-blue-800 font-bold mb-3 text-sm">進階篩選：只看特定答案的題目 (若全不勾選則代表全考)</label>
+                
+                <!-- 是非題篩選 -->
+                <div id="filter-tf-group" class="flex space-x-4 hidden">
+                    <label class="flex items-center cursor-pointer bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm hover:bg-blue-50">
+                        <input type="checkbox" id="filter-tf-o" class="form-checkbox text-blue-600 w-4 h-4 rounded">
+                        <span class="ml-2 text-sm text-gray-700 font-medium">答案為「是 (O)」</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm hover:bg-blue-50">
+                        <input type="checkbox" id="filter-tf-x" class="form-checkbox text-blue-600 w-4 h-4 rounded">
+                        <span class="ml-2 text-sm text-gray-700 font-medium">答案為「否 (X)」</span>
+                    </label>
+                </div>
+
+                <!-- 選擇題動態篩選 -->
+                <div id="filter-mc-group" class="hidden flex flex-wrap gap-3">
+                    <!-- 將由 JavaScript 動態填入該科目有的答案選項 -->
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-gray-700 font-medium mb-2">4. 選擇範圍</label>
+            <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+                <div class="flex-1">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="exam-scope" value="all" checked class="form-radio text-blue-600 w-4 h-4">
+                        <span class="ml-2 text-gray-700">全題庫</span>
+                    </label>
+                </div>
+                <div class="flex-1">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="exam-scope" value="random" class="form-radio text-blue-600 w-4 h-4">
+                        <span class="ml-2 text-gray-700">指定數量</span>
+                    </label>
+                    <input type="number" id="question-count" placeholder="輸入題數" class="w-full border border-gray-300 rounded-lg p-2 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled>
+                </div>
+                <div class="flex-1">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="exam-scope" value="range" class="form-radio text-blue-600 w-4 h-4">
+                        <span class="ml-2 text-gray-700">指定範圍</span>
+                    </label>
+                    <div class="flex space-x-2 mt-2">
+                        <input type="number" id="start-number" placeholder="起始題號" class="w-1/2 border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled>
+                        <input type="number" id="end-number" placeholder="結束題號" class="w-1/2 border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="setting-exam-time">
+            <label for="exam-time" class="block text-gray-700 font-medium mb-2">5. 輸入考試時間 (分鐘)</label>
+            <input type="number" id="exam-time" placeholder="無時間限制" class="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0">
+        </div>
+
+        <div id="setting-pass-rate">
+            <label for="pass-rate" class="block text-gray-700 font-medium mb-2">6. 輸入通過率 (%)</label>
+            <input type="number" id="pass-rate" value="60" class="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" max="100">
+        </div>
+
+        <div id="setting-direct-review">
+            <label class="flex items-center cursor-pointer">
+                <input type="checkbox" id="direct-review" class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500">
+                <span class="ml-2 text-gray-700 font-medium">7. 測驗結束後直接檢討試卷</span>
+            </label>
+        </div>
+
+        <div id="error-message" class="text-red-500 text-center font-medium hidden"></div>
+
+        <button id="start-exam-btn" class="w-full btn-primary py-3 text-lg mt-4">開始</button>
+    </div>
+
+    <!-- 測驗/讀題頁面 -->
+    <div id="exam-page" class="hidden">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800" id="exam-title"></h2>
+            <div id="timer" class="text-2xl font-semibold text-gray-600"></div>
+        </div>
+        
+        <div class="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg mb-4 font-medium hidden border border-blue-200" id="practice-mode-indicator">
+            🛠️ 練習模式：作答後請點擊下方「確認答案」查看結果。
+        </div>
+
+        <div class="bg-purple-50 text-purple-800 px-4 py-3 rounded-lg mb-4 font-medium hidden border border-purple-200" id="read-mode-indicator">
+            📖 讀題模式：直接瀏覽題庫與正確答案。
+        </div>
+
+        <div id="question-area" class="space-y-6">
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                <p class="text-lg font-semibold text-gray-800 mb-4" id="question-text"></p>
+                <div id="options-container" class="space-y-3"></div>
+            </div>
+            
+            <!-- 練習模式/讀題模式 回饋區塊 -->
+            <div id="practice-feedback" class="hidden p-5 rounded-xl mt-4"></div>
+
+            <div class="flex justify-between mt-6">
+                <button id="prev-btn" class="btn-secondary hidden py-2 px-6">&lt; 上一題</button>
+                <button id="confirm-btn" class="btn-primary ml-auto hidden py-2 px-6">確認答案</button>
+                <button id="next-btn" class="btn-primary ml-auto py-2 px-6">下一題 &gt;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結果頁面 -->
+    <div id="results-page" class="hidden text-center space-y-6 py-8">
+        <h2 class="text-4xl font-bold text-gray-800">完成</h2>
+        <div id="results-summary" class="text-2xl font-medium text-gray-700"></div>
+        <div id="pass-fail-message" class="text-3xl font-bold"></div>
+        <div class="flex justify-center space-x-4 mt-8">
+            <button id="review-exam-btn" class="btn-secondary py-3 px-6">檢討試卷</button>
+            <button id="restart-btn" class="btn-primary py-3 px-6">重新開始</button>
+        </div>
+    </div>
+
+    <!-- 檢討頁面 -->
+    <div id="review-page" class="hidden">
+        <h2 class="text-3xl font-bold text-center mb-6 text-gray-800">試卷檢討</h2>
+        <div id="review-questions" class="space-y-8"></div>
+        <button id="back-to-results-btn" class="w-full btn-secondary mt-8 py-3">返回結果</button>
+    </div>
+</div>
+
+<script>
+    // 建立 ABCD 到 1234 的動態對應字典
+    const ansMap = {
+        'A': '1', 'B': '2', 'C': '3', 'D': '4',
+        'a': '1', 'b': '2', 'c': '3', 'd': '4',
+        '1': '1', '2': '2', '3': '3', '4': '4'
+    };
+
+    const fileInput = document.getElementById('file-input');
+    const subjectSelect = document.getElementById('subject-select');
+    const questionCountInput = document.getElementById('question-count');
+    const startNumberInput = document.getElementById('start-number');
+    const endNumberInput = document.getElementById('end-number');
+    const examTimeInput = document.getElementById('exam-time');
+    const passRateInput = document.getElementById('pass-rate');
+    const directReviewCheckbox = document.getElementById('direct-review');
+    const startExamBtn = document.getElementById('start-exam-btn');
+    const errorMessage = document.getElementById('error-message');
+    
+    const singleSubjectContainer = document.getElementById('single-subject-container');
+    const multiSubjectContainer = document.getElementById('multi-subject-container');
+    const multiSubjectList = document.getElementById('multi-subject-list');
+    const totalRatioEl = document.getElementById('total-ratio');
+    const evenDistributeBtn = document.getElementById('even-distribute-btn');
+
+    // 設定區塊包裝元素 (用於讀題模式隱藏)
+    const settingExamTimeDiv = document.getElementById('setting-exam-time');
+    const settingPassRateDiv = document.getElementById('setting-pass-rate');
+    const settingDirectReviewDiv = document.getElementById('setting-direct-review');
+    
+    const settingsPage = document.getElementById('settings-page');
+    const examPage = document.getElementById('exam-page');
+    const resultsPage = document.getElementById('results-page');
+    const reviewPage = document.getElementById('review-page');
+    
+    const timerEl = document.getElementById('timer');
+    const questionTextEl = document.getElementById('question-text');
+    const optionsContainer = document.getElementById('options-container');
+    const practiceFeedback = document.getElementById('practice-feedback');
+    const practiceModeIndicator = document.getElementById('practice-mode-indicator');
+    const readModeIndicator = document.getElementById('read-mode-indicator');
+    
+    const prevBtn = document.getElementById('prev-btn');
+    const confirmBtn = document.getElementById('confirm-btn');
+    const nextBtn = document.getElementById('next-btn');
+    
+    const resultsSummaryEl = document.getElementById('results-summary');
+    const passFailMessageEl = document.getElementById('pass-fail-message');
+    const reviewQuestionsEl = document.getElementById('review-questions');
+    const reviewExamBtn = document.getElementById('review-exam-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const backToResultsBtn = document.getElementById('back-to-results-btn');
+
+    let allQuestions = {};
+    let examQuestions = [];
+    let currentQuestionIndex = 0;
+    let userAnswers = {};
+    let confirmedAnswers = {}; // 記錄練習模式下是否已確認答案
+    let examTimer;
+    let timeRemaining;
+    let timerInterval;
+    let isPracticeMode = false;
+    let isReadMode = false;
+    let subjectMode = 'single'; // 記錄當前是單一科目或多科目模式
+
+    document.querySelectorAll('input[name="subject-mode"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            subjectMode = e.target.value;
+            if (subjectMode === 'single') {
+                singleSubjectContainer.classList.remove('hidden');
+                multiSubjectContainer.classList.add('hidden');
+                document.querySelector('input[name="exam-scope"][value="range"]').disabled = false;
+            } else {
+                singleSubjectContainer.classList.add('hidden');
+                multiSubjectContainer.classList.remove('hidden');
+                // 多科目模式下禁用「指定範圍」
+                const rangeRadio = document.querySelector('input[name="exam-scope"][value="range"]');
+                rangeRadio.disabled = true;
+                if (rangeRadio.checked) {
+                    document.querySelector('input[name="exam-scope"][value="random"]').checked = true;
+                    document.querySelector('input[name="exam-scope"][value="random"]').dispatchEvent(new Event('change'));
+                }
+            }
+            updateFilterOptions();
+        });
+    });
+
+    // 監聽模式切換，隱藏/顯示無關設定
+    document.querySelectorAll('input[name="test-mode"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const mode = e.target.value;
+            if (mode === 'read') {
+                settingExamTimeDiv.classList.add('hidden');
+                settingPassRateDiv.classList.add('hidden');
+                settingDirectReviewDiv.classList.add('hidden');
+            } else {
+                settingExamTimeDiv.classList.remove('hidden');
+                settingPassRateDiv.classList.remove('hidden');
+                settingDirectReviewDiv.classList.remove('hidden');
+            }
+        });
+    });
+
+    // 動態更新篩選選項
+    function updateFilterOptions() {
+        let selectedSubjects = [];
+        if (subjectMode === 'single') {
+            if (subjectSelect.value) selectedSubjects.push(subjectSelect.value);
+        } else {
+            document.querySelectorAll('.multi-subject-checkbox:checked').forEach(cb => selectedSubjects.push(cb.value));
+        }
+
+        const type = document.querySelector('input[name="question-type"]:checked').value;
+        const filterSection = document.getElementById('answer-filter-section');
+        const tfGroup = document.getElementById('filter-tf-group');
+        const mcGroup = document.getElementById('filter-mc-group');
+
+        if (selectedSubjects.length === 0 || type === '混合') {
+            filterSection.classList.add('hidden');
+            return;
+        }
+
+        filterSection.classList.remove('hidden');
+
+        if (type === '是非題') {
+            tfGroup.classList.remove('hidden');
+            mcGroup.classList.add('hidden');
+        } else if (type === '選擇題') {
+            tfGroup.classList.add('hidden');
+            mcGroup.classList.remove('hidden');
+            
+            mcGroup.innerHTML = '';
+            let allPossibleAnswers = new Set();
+            
+            // 統合所有選擇科目的可用答案
+            selectedSubjects.forEach(subj => {
+                if (allQuestions[subj] && allQuestions[subj]['選擇題']) {
+                    allQuestions[subj]['選擇題'].forEach(q => {
+                        if (q.答案) allPossibleAnswers.add(q.答案.toString());
+                    });
+                }
+            });
+
+            const uniqueAnswers = [...allPossibleAnswers].sort();
+            
+            if(uniqueAnswers.length === 0) {
+                mcGroup.innerHTML = '<span class="text-gray-500 text-sm">無可用的答案選項</span>';
+                return;
+            }
+
+            uniqueAnswers.forEach(ans => {
+                const label = document.createElement('label');
+                label.className = 'flex items-center cursor-pointer bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm hover:bg-blue-50 transition duration-200';
+                
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.className = 'form-checkbox text-blue-600 w-4 h-4 rounded filter-mc-checkbox';
+                input.value = ans;
+                
+                const span = document.createElement('span');
+                span.className = 'ml-2 text-sm text-gray-700 font-medium';
+                span.textContent = `答案: ${ans}`;
+                
+                label.appendChild(input);
+                label.appendChild(span);
+                mcGroup.appendChild(label);
+            });
+        }
+    }
+
+    document.querySelectorAll('input[name="question-type"]').forEach(radio => {
+        radio.addEventListener('change', updateFilterOptions);
+    });
+    subjectSelect.addEventListener('change', updateFilterOptions);
+
+    // 讀取檔案
+    fileInput.addEventListener('change', (event) => {
+        allQuestions = {};
+        const files = event.target.files;
+        const subjects = new Set();
+        let filesProcessed = 0;
+
+        subjectSelect.innerHTML = '<option value="">正在載入...</option>';
+
+        Array.from(files).forEach(file => {
+            const fileName = file.name;
+            const subjectMatch = fileName.match(/【(.*?)】/);
+            let subject = subjectMatch ? subjectMatch[1] : fileName.replace(/\.[^/.]+$/, "");
+
+            if (!allQuestions[subject]) {
+                allQuestions[subject] = { '是非題': [], '選擇題': [] };
+            }
+
+            if (fileName.endsWith('.xlsx')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    workbook.SheetNames.forEach(sheetName => {
+                        const worksheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                        
+                        if (sheetName.includes('是非題')) {
+                            allQuestions[subject]['是非題'] = allQuestions[subject]['是非題'].concat(jsonData.filter(q => q.題型 && q.答案 && q.題目));
+                        } else if (sheetName.includes('選擇題')) {
+                            allQuestions[subject]['選擇題'] = allQuestions[subject]['選擇題'].concat(jsonData.filter(q => q.題型 && q.答案 && q.題目));
+                        }
+                    });
+
+                    subjects.add(subject);
+                    filesProcessed++;
+                    if (filesProcessed === files.length) { renderSubjects(subjects); }
+                };
+                reader.onerror = function() {
+                    errorMessage.textContent = `檔案解析錯誤: ${file.name}`;
+                    errorMessage.classList.remove('hidden');
+                    filesProcessed++;
+                };
+                reader.readAsArrayBuffer(file);
+
+            } else if (fileName.endsWith('.csv')) {
+                Papa.parse(file, {
+                    header: true,
+                    complete: function(results) {
+                        results.data.forEach(q => {
+                            if (q.題型 && q.答案 && q.題目) {
+                                const qType = q.題型.includes('是非') ? '是非題' : '選擇題';
+                                allQuestions[subject][qType].push(q);
+                            }
+                        });
+
+                        subjects.add(subject);
+                        filesProcessed++;
+                        if (filesProcessed === files.length) { renderSubjects(subjects); }
+                    },
+                    error: function() {
+                        errorMessage.textContent = `檔案解析錯誤: ${file.name}`;
+                        errorMessage.classList.remove('hidden');
+                        filesProcessed++;
+                    }
+                });
+            }
+        });
+    });
+
+    function renderSubjects(subjects) {
+        subjectSelect.innerHTML = '<option value="">請選擇科目</option>';
+        multiSubjectList.innerHTML = ''; 
+
+        subjects.forEach(subject => {
+            // 單一科目下拉選單
+            const option = document.createElement('option');
+            option.value = subject;
+            option.textContent = subject;
+            subjectSelect.appendChild(option);
+
+            // 多科目勾選清單
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between bg-gray-50 p-2 border border-gray-200 rounded hover:bg-blue-50 transition';
+            div.innerHTML = `
+                <label class="flex items-center cursor-pointer flex-1 overflow-hidden">
+                    <input type="checkbox" class="form-checkbox text-blue-600 w-4 h-4 rounded multi-subject-checkbox" value="${subject}">
+                    <span class="ml-2 text-gray-700 truncate" title="${subject}">${subject}</span>
+                </label>
+                <div class="flex items-center w-28 ml-2 hidden ratio-container">
+                    <input type="number" class="w-16 border border-gray-300 rounded p-1 text-right text-sm multi-subject-ratio focus:ring-blue-500 focus:outline-none" min="0" max="100" value="0">
+                    <span class="ml-1 text-gray-500 text-sm">%</span>
+                </div>
+            `;
+            multiSubjectList.appendChild(div);
+
+            const checkbox = div.querySelector('.multi-subject-checkbox');
+            const ratioContainer = div.querySelector('.ratio-container');
+            const ratioInput = div.querySelector('.multi-subject-ratio');
+
+            checkbox.addEventListener('change', () => {
+                ratioContainer.classList.toggle('hidden', !checkbox.checked);
+                if(!checkbox.checked) ratioInput.value = 0;
+                calculateTotalRatio();
+                updateFilterOptions();
+            });
+
+            ratioInput.addEventListener('input', calculateTotalRatio);
+        });
+        errorMessage.classList.add('hidden');
+        updateFilterOptions();
+    }
+
+    function calculateTotalRatio() {
+        let total = 0;
+        document.querySelectorAll('.multi-subject-ratio').forEach(input => {
+            if(!input.closest('div').classList.contains('hidden')) {
+                total += parseFloat(input.value) || 0;
+            }
+        });
+        total = Math.round(total * 10) / 10;
+        totalRatioEl.textContent = total;
+        if (total === 100) {
+            totalRatioEl.className = 'text-green-600 font-bold';
+        } else {
+            totalRatioEl.className = 'text-red-600 font-bold';
+        }
+    }
+
+    evenDistributeBtn.addEventListener('click', () => {
+        const checkedBoxes = Array.from(document.querySelectorAll('.multi-subject-checkbox:checked'));
+        if(checkedBoxes.length === 0) return;
+        
+        const avg = 100 / checkedBoxes.length;
+        let currentSum = 0;
+        const inputs = checkedBoxes.map(cb => cb.closest('.bg-gray-50').querySelector('.multi-subject-ratio'));
+        
+        inputs.forEach((input, index) => {
+            if (index === inputs.length - 1) {
+                let remainder = (100 - currentSum).toFixed(1);
+                if (remainder.endsWith('.0')) remainder = parseInt(remainder);
+                input.value = remainder;
+            } else {
+                let val = Math.floor(avg);
+                input.value = val;
+                currentSum += val;
+            }
+        });
+        calculateTotalRatio();
+    });
+
+    document.querySelectorAll('input[name="exam-scope"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            questionCountInput.disabled = radio.value !== 'random';
+            startNumberInput.disabled = radio.value !== 'range';
+            endNumberInput.disabled = radio.value !== 'range';
+        });
+    });
+
+    function getFilteredPool(subject, type) {
+        let pool = [];
+        if (type === '混合') {
+            pool = allQuestions[subject]['是非題'].concat(allQuestions[subject]['選擇題']);
+        } else {
+            pool = allQuestions[subject][type] || [];
+        }
+        
+        // 注入題目來源 (已包含在原始實作的 displayQuestion 中呈現)
+        pool = pool.map(q => ({ ...q, _source: subject }));
+
+        // 進階篩選邏輯
+        if (type === '是非題') {
+            const checkO = document.getElementById('filter-tf-o').checked;
+            const checkX = document.getElementById('filter-tf-x').checked;
+            if (checkO || checkX) {
+                pool = pool.filter(q => (checkO && q.答案 === 'O') || (checkX && q.答案 === 'X'));
+            }
+        } else if (type === '選擇題') {
+            const checkedBoxes = Array.from(document.querySelectorAll('.filter-mc-checkbox:checked')).map(cb => cb.value);
+            if (checkedBoxes.length > 0) {
+                pool = pool.filter(q => checkedBoxes.includes(q.答案.toString()));
+            }
+        }
+        return pool;
+    }
+
+    startExamBtn.addEventListener('click', () => {
+        const testMode = document.querySelector('input[name="test-mode"]:checked').value;
+        isPracticeMode = testMode === 'practice';
+        isReadMode = testMode === 'read';
+        
+        const questionType = document.querySelector('input[name="question-type"]:checked').value;
+        const examScope = document.querySelector('input[name="exam-scope"]:checked').value;
+        const examTime = parseInt(examTimeInput.value, 10);
+        const passRate = parseInt(passRateInput.value, 10);
+        const countInputVal = parseInt(questionCountInput.value, 10);
+
+        if (!isReadMode && (isNaN(passRate) || passRate < 0 || passRate > 100)) {
+            showError('通過率必須是介於 0 到 100 的數字。');
+            return;
+        }
+
+        examQuestions = [];
+
+        if (subjectMode === 'single') {
+            const subject = subjectSelect.value;
+            if (!subject) {
+                showError('請選擇一個科目。');
+                return;
+            }
+
+            let questionPool = getFilteredPool(subject, questionType);
+
+            if (questionPool.length === 0) {
+                showError('所選科目或題型沒有可用的題目 (或被篩選條件過濾完)。');
+                return;
+            }
+
+            if (examScope === 'all') {
+                examQuestions = questionPool;
+            } else if (examScope === 'random') {
+                if (isNaN(countInputVal) || countInputVal <= 0 || countInputVal > questionPool.length) {
+                    showError(`請輸入介於 1 到 ${questionPool.length} 的有效題數。(篩選後題庫數為 ${questionPool.length})`);
+                    return;
+                }
+                examQuestions = getRandomQuestions(questionPool, countInputVal);
+            } else if (examScope === 'range') {
+                const start = parseInt(startNumberInput.value, 10);
+                const end = parseInt(endNumberInput.value, 10);
+                if (isNaN(start) || isNaN(end) || start <= 0 || end <= 0 || start > end) {
+                    showError('請輸入有效的起始與結束題號。');
+                    return;
+                }
+                examQuestions = questionPool.filter(q => parseInt(q.題號) >= start && parseInt(q.題號) <= end);
+            }
+            
+            document.getElementById('exam-title').textContent = `${subject} - ${questionType}`;
+
+        } else {
+            // 多科目合併邏輯
+            const checkedSubjects = Array.from(document.querySelectorAll('.multi-subject-checkbox:checked'));
+            if (checkedSubjects.length === 0) {
+                showError('請至少勾選一個科目。');
+                return;
+            }
+
+            if (examScope === 'random') {
+                let totalPercent = 0;
+                let subjectRatios = [];
+                checkedSubjects.forEach(cb => {
+                    const ratio = parseFloat(cb.closest('.bg-gray-50').querySelector('.multi-subject-ratio').value) || 0;
+                    totalPercent += ratio;
+                    subjectRatios.push({ subject: cb.value, ratio: ratio });
+                });
+                
+                if (Math.abs(totalPercent - 100) > 0.1) {
+                    showError('多科目合併測驗時，總比例必須剛好為 100%。');
+                    return;
+                }
+
+                if (isNaN(countInputVal) || countInputVal <= 0) {
+                    showError('請輸入有效的考試題數。');
+                    return;
+                }
+
+                let subjectPools = {};
+                let totalAvailable = 0;
+                subjectRatios.forEach(sr => {
+                    subjectPools[sr.subject] = getFilteredPool(sr.subject, questionType);
+                    totalAvailable += subjectPools[sr.subject].length;
+                });
+
+                if (totalAvailable < countInputVal) {
+                    showError(`總題庫數量不足 (${totalAvailable} 題) ，無法產生 ${countInputVal} 題。`);
+                    return;
+                }
+
+                // 最大餘數法分配題數
+                let allocations = [];
+                let currentAllocatedSum = 0;
+                
+                subjectRatios.forEach(sr => {
+                    const exact = countInputVal * (sr.ratio / 100);
+                    const integerPart = Math.floor(exact);
+                    const fractionPart = exact - integerPart;
+                    allocations.push({
+                        subject: sr.subject,
+                        intPart: integerPart,
+                        fraction: fractionPart,
+                        finalCount: integerPart,
+                        pool: subjectPools[sr.subject]
+                    });
+                    currentAllocatedSum += integerPart;
+                });
+
+                let remainder = countInputVal - currentAllocatedSum;
+                allocations.sort((a, b) => b.fraction - a.fraction);
+                for (let i = 0; i < remainder; i++) {
+                    allocations[i].finalCount++;
+                }
+
+                let shortfalls = [];
+                allocations.forEach(alloc => {
+                    if (alloc.finalCount > alloc.pool.length) {
+                        shortfalls.push(`「${alloc.subject}」需 ${alloc.finalCount} 題, 但篩選後僅剩 ${alloc.pool.length} 題符合條件`);
+                    } else if (alloc.finalCount > 0) {
+                        const picked = getRandomQuestions(alloc.pool, alloc.finalCount);
+                        examQuestions = examQuestions.concat(picked);
+                    }
+                });
+
+                if (shortfalls.length > 0) {
+                    showError(`部分科目符合條件的題數不足以滿足設定的比例：\n${shortfalls.join('\n')}`);
+                    return;
+                }
+            } else if (examScope === 'all') {
+                checkedSubjects.forEach(cb => {
+                    let pool = getFilteredPool(cb.value, questionType);
+                    examQuestions = examQuestions.concat(pool);
+                });
+            }
+            
+            document.getElementById('exam-title').textContent = `綜合測驗 - ${questionType}`;
+        }
+
+        // 只有非讀題模式，或者讀題模式選擇隨機數量時，才打亂題目順序
+        if (!isReadMode || examScope === 'random') {
+            examQuestions = shuffleArray(examQuestions);
+        }
+
+        if (examQuestions.length === 0) {
+            showError('根據您的篩選條件，沒有符合的題目。');
+            return;
+        }
+
+        userAnswers = {};
+        confirmedAnswers = {};
+        currentQuestionIndex = 0;
+        
+        settingsPage.classList.add('hidden');
+        examPage.classList.remove('hidden');
+        
+        // 指示器與計時器顯示邏輯
+        practiceModeIndicator.classList.toggle('hidden', !isPracticeMode);
+        readModeIndicator.classList.toggle('hidden', !isReadMode);
+
+        if (isReadMode) {
+            timerEl.classList.add('hidden'); // 讀題模式不需要計時器
+        } else {
+            timerEl.classList.remove('hidden');
+            if (examTime > 0) {
+                timeRemaining = examTime * 60;
+                timerInterval = setInterval(updateTimer, 1000);
+            } else {
+                timerEl.textContent = '無時間限制';
+            }
+        }
+
+        displayQuestion();
+    });
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function getRandomQuestions(pool, count) {
+        const shuffledPool = shuffleArray([...pool]);
+        return shuffledPool.slice(0, count);
+    }
+    
+    function updateTimer() {
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        if (timeRemaining <= 60) { timerEl.classList.add('timer-red'); } 
+        else { timerEl.classList.remove('timer-red'); }
+        
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            endExam();
+        }
+        timeRemaining--;
+    }
+
+    function displayQuestion() {
+        if (examQuestions.length === 0) return;
+
+        const question = examQuestions[currentQuestionIndex];
+        const questionNumber = currentQuestionIndex + 1;
+        
+        // 如果是合併模式，顯示題目來源的標籤
+        const sourceTag = question._source ? `<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mb-2 mr-2 border border-blue-200">來源：${question._source}</span>` : '';
+        
+        questionTextEl.innerHTML = `${sourceTag}<br><span class="font-bold mr-2 text-gray-600">${questionNumber}/${examQuestions.length}</span> ${question.題目}`;
+        optionsContainer.innerHTML = '';
+        practiceFeedback.classList.add('hidden');
+        
+        const isMultiSelect = question.題型 === '選擇題' && question.答案.toString().includes('.');
+        const inputType = isMultiSelect ? 'checkbox' : 'radio';
+
+        if (question.題型 === '是非題') {
+            createOptionElement('O', '是', 'O', 'radio');
+            createOptionElement('X', '非', 'X', 'radio');
+        } else {
+            for (let i = 1; i <= 4; i++) {
+                const optionKey = `選項${i}`;
+                if (question[optionKey]) {
+                    createOptionElement(i, question[optionKey], i, inputType);
+                }
+            }
+        }
+        
+        if (userAnswers[currentQuestionIndex]) {
+            const currentAnswers = Array.isArray(userAnswers[currentQuestionIndex]) ? userAnswers[currentQuestionIndex] : [userAnswers[currentQuestionIndex]];
+            currentAnswers.forEach(answer => {
+                const input = document.querySelector(`input[data-answer='${answer}']`);
+                if (input) { input.checked = true; }
+            });
+        }
+
+        // 讀題模式專屬介面邏輯
+        if (isReadMode) {
+            disableOptions();
+            showReadFeedback(); // 直接顯示正確答案詳解
+            confirmBtn.classList.add('hidden');
+            nextBtn.classList.remove('hidden');
+            prevBtn.classList.toggle('hidden', currentQuestionIndex === 0);
+            nextBtn.textContent = (currentQuestionIndex === examQuestions.length - 1) ? '結束讀題' : '下一題 >';
+        }
+        // 練習模式邏輯
+        else if (isPracticeMode) {
+            if (confirmedAnswers[currentQuestionIndex]) {
+                showPracticeFeedback();
+                disableOptions();
+                confirmBtn.classList.add('hidden');
+                nextBtn.classList.remove('hidden');
+                prevBtn.classList.toggle('hidden', currentQuestionIndex === 0);
+            } else {
+                confirmBtn.classList.remove('hidden');
+                nextBtn.classList.add('hidden');
+                prevBtn.classList.toggle('hidden', currentQuestionIndex === 0);
+            }
+            nextBtn.textContent = (currentQuestionIndex === examQuestions.length - 1) ? '結束測驗' : '下一題 >';
+        } 
+        // 一般測驗模式邏輯
+        else {
+            confirmBtn.classList.add('hidden');
+            nextBtn.classList.remove('hidden');
+            prevBtn.classList.toggle('hidden', currentQuestionIndex === 0);
+            nextBtn.textContent = (currentQuestionIndex === examQuestions.length - 1) ? '結束測驗' : '下一題 >';
+        }
+    }
+
+    function createOptionElement(value, text, dataValue, inputType) {
+        const label = document.createElement('label');
+        label.className = 'flex items-center space-x-3 p-4 rounded-lg border border-gray-200 cursor-pointer hover:bg-blue-50 transition duration-200 ease-in-out bg-white';
+        
+        const input = document.createElement('input');
+        input.type = inputType;
+        input.className = `text-blue-600 focus:ring-blue-500 w-5 h-5 ${inputType === 'radio' ? 'form-radio' : 'form-checkbox rounded'}`;
+        input.name = `question-${currentQuestionIndex}`;
+        input.value = dataValue;
+        input.setAttribute('data-answer', dataValue);
+
+        input.addEventListener('change', () => {
+            const question = examQuestions[currentQuestionIndex];
+            const isMultiSelect = question.題型 === '選擇題' && question.答案.toString().includes('.');
+            
+            if (isMultiSelect) {
+                const checkedInputs = Array.from(optionsContainer.querySelectorAll('input:checked'));
+                userAnswers[currentQuestionIndex] = checkedInputs.map(inp => inp.value);
+            } else {
+                userAnswers[currentQuestionIndex] = input.value;
+            }
+        });
+        
+        const span = document.createElement('span');
+        span.className = 'text-gray-800 text-base leading-relaxed';
+        span.textContent = `${value}. ${text}`;
+        
+        label.appendChild(input);
+        label.appendChild(span);
+        optionsContainer.appendChild(label);
+    }
+    
+    // 讀題模式直接顯示反饋
+    function showReadFeedback() {
+        const q = examQuestions[currentQuestionIndex];
+        const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
+        
+        practiceFeedback.classList.remove('hidden', 'bg-green-50', 'bg-red-50', 'border-green-400', 'border-red-400', 'text-green-800', 'text-red-800');
+        practiceFeedback.classList.add('bg-blue-50', 'border', 'border-blue-400', 'text-blue-900');
+        
+        let correctDisplay;
+        if (q.題型 === '是非題') {
+            correctDisplay = q.答案 === 'O' ? '是' : '非';
+            // 標示正確選項
+            const correctInput = document.querySelector(`input[data-answer='${q.答案}']`);
+            if (correctInput) {
+                correctInput.checked = true;
+                correctInput.parentElement.classList.add('option-read-correct');
+            }
+        } else {
+            const correctOptionIndices = q.答案.toString().split('.');
+            correctDisplay = correctOptionIndices.map(rawIdx => {
+                const idx = ansMap[rawIdx.trim()] || rawIdx.trim();
+                
+                // 標示正確選項
+                const correctInput = document.querySelector(`input[data-answer='${idx}']`);
+                if (correctInput) {
+                    correctInput.checked = true;
+                    correctInput.parentElement.classList.add('option-read-correct');
+                }
+
+                return `選項${idx}: ${q[`選項${idx}`] || '無此選項資料'}`;
+            }).join('<br>');
+        }
+
+        practiceFeedback.innerHTML = `
+            <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">💡</span> 正確答案與詳解</p>
+            <div class="mb-3 p-3 bg-white bg-opacity-60 rounded border border-blue-200">
+                <span class="font-semibold text-blue-800">正確答案：</span><br>${correctDisplay}
+            </div>
+            <div class="mt-2 text-blue-900">
+                <span class="font-semibold text-blue-800">詳解：</span><br>${explanation}
+            </div>
+        `;
+    }
+
+    // 練習模式：確認答案按鈕
+    confirmBtn.addEventListener('click', () => {
+        const answer = userAnswers[currentQuestionIndex];
+        if (!answer || (Array.isArray(answer) && answer.length === 0)) {
+            showError('請先選擇答案再確認！');
+            setTimeout(() => { errorMessage.classList.add('hidden'); }, 2000);
+            return;
+        }
+        
+        confirmedAnswers[currentQuestionIndex] = true;
+        showPracticeFeedback();
+        disableOptions();
+        
+        confirmBtn.classList.add('hidden');
+        nextBtn.classList.remove('hidden');
+    });
+
+    function showPracticeFeedback() {
+        const q = examQuestions[currentQuestionIndex];
+        const isCorrect = isAnswerCorrect(q, userAnswers[currentQuestionIndex]);
+        const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
+        
+        practiceFeedback.classList.remove('hidden', 'bg-green-50', 'bg-red-50', 'border-green-400', 'border-red-400', 'text-green-800', 'text-red-800', 'bg-blue-50', 'border-blue-400', 'text-blue-900');
+        
+        let correctDisplay;
+        if (q.題型 === '是非題') {
+            correctDisplay = q.答案 === 'O' ? '是' : '非';
+        } else {
+            const correctOptionIndices = q.答案.toString().split('.');
+            correctDisplay = correctOptionIndices.map(rawIdx => {
+                const idx = ansMap[rawIdx.trim()] || rawIdx.trim();
+                return `選項${idx}: ${q[`選項${idx}`] || '無此選項資料'}`;
+            }).join('<br>');
+        }
+
+        if (isCorrect) {
+            practiceFeedback.classList.add('bg-green-50', 'border', 'border-green-400', 'text-green-900');
+            practiceFeedback.innerHTML = `
+                <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">✅</span> 答對了！</p>
+                <div class="mb-3 p-3 bg-white bg-opacity-60 rounded border border-green-200">
+                    <span class="font-semibold text-green-800">正確答案：</span><br>${correctDisplay}
+                </div>
+                <div class="mt-2 text-green-900">
+                    <span class="font-semibold text-green-800">詳解：</span><br>${explanation}
+                </div>
+            `;
+        } else {
+            practiceFeedback.classList.add('bg-red-50', 'border', 'border-red-400', 'text-red-900');
+            practiceFeedback.innerHTML = `
+                <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">❌</span> 答錯了！</p>
+                <div class="mb-3 p-3 bg-white bg-opacity-60 rounded border border-red-200">
+                    <span class="font-semibold text-red-800">正確答案：</span><br>${correctDisplay}
+                </div>
+                <div class="mt-2 text-red-900">
+                    <span class="font-semibold text-red-800">詳解：</span><br>${explanation}
+                </div>
+            `;
+        }
+    }
+
+    function disableOptions() {
+        document.querySelectorAll('#options-container input').forEach(input => {
+            input.disabled = true;
+        });
+        document.querySelectorAll('#options-container label').forEach(label => {
+            label.classList.remove('cursor-pointer', 'hover:bg-blue-50');
+            label.classList.add('cursor-not-allowed');
+            // 保留原本背景色與我們加上的正確標記，不再一律變暗
+            if (!label.classList.contains('option-read-correct')) {
+                label.classList.add('opacity-70', 'bg-gray-100');
+            }
+        });
+    }
+
+    nextBtn.addEventListener('click', () => {
+        if (nextBtn.textContent === '結束測驗' || nextBtn.textContent === '結束讀題') {
+            endExam();
+        } else {
+            currentQuestionIndex++;
+            displayQuestion();
+        }
+    });
+
+    prevBtn.addEventListener('click', () => {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+            displayQuestion();
+        }
+    });
+    
+    function endExam() {
+        clearInterval(timerInterval);
+        examPage.classList.add('hidden');
+
+        // 讀題模式結束邏輯
+        if (isReadMode) {
+            resultsSummaryEl.textContent = `您已瀏覽完畢共 ${examQuestions.length} 題。`;
+            passFailMessageEl.textContent = '';
+            passFailMessageEl.className = 'text-3xl font-bold'; // 清除顏色
+            reviewExamBtn.classList.add('hidden'); // 不需要檢討
+            resultsPage.classList.remove('hidden');
+            return;
+        }
+
+        // 測驗/練習模式結束邏輯
+        let correctCount = 0;
+        examQuestions.forEach((q, index) => {
+            if (isAnswerCorrect(q, userAnswers[index])) {
+                correctCount++;
+            }
+        });
+
+        const totalQuestions = examQuestions.length;
+        const accuracy = (correctCount / totalQuestions) * 100;
+        const passRate = parseInt(passRateInput.value, 10);
+        
+        resultsSummaryEl.textContent = `您答對了 ${correctCount} 題，總共 ${totalQuestions} 題。正確率為 ${accuracy.toFixed(2)}%。`;
+
+        if (accuracy >= passRate) {
+            passFailMessageEl.textContent = '恭喜您，通過測驗！';
+            passFailMessageEl.className = 'text-3xl font-bold result-correct';
+        } else {
+            passFailMessageEl.textContent = '很遺憾，您未通過測驗。';
+            passFailMessageEl.className = 'text-3xl font-bold result-wrong';
+        }
+
+        reviewExamBtn.classList.remove('hidden');
+
+        if (directReviewCheckbox.checked) {
+            reviewPage.classList.remove('hidden');
+            displayReviewQuestions();
+        } else {
+            resultsPage.classList.remove('hidden');
+        }
+    }
+    
+    reviewExamBtn.addEventListener('click', () => {
+        resultsPage.classList.add('hidden');
+        reviewPage.classList.remove('hidden');
+        displayReviewQuestions();
+    });
+
+    function displayReviewQuestions() {
+        reviewQuestionsEl.innerHTML = '';
+        examQuestions.forEach((q, index) => {
+            const reviewItem = document.createElement('div');
+            reviewItem.className = 'bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4';
+            
+            const questionText = document.createElement('p');
+            questionText.className = 'text-lg font-semibold text-gray-800';
+            questionText.innerHTML = `<span class="font-bold mr-2 text-gray-600">${index + 1}.</span> ${q.題目}`;
+
+            const answerStatus = document.createElement('div');
+            const userAnswer = userAnswers[index];
+            const isCorrect = isAnswerCorrect(q, userAnswer);
+            
+            answerStatus.className = 'font-bold text-lg mb-2';
+            answerStatus.textContent = isCorrect ? '✅ 您的答案：正確' : `❌ 您的答案：錯誤`;
+            answerStatus.classList.add(isCorrect ? 'result-correct' : 'result-wrong');
+            
+            const flexContainer = document.createElement('div');
+            flexContainer.className = 'flex flex-col md:flex-row md:space-x-8 space-y-4 md:space-y-0 p-4 bg-gray-50 rounded-lg border border-gray-100';
+
+            // User's answer display
+            const userAnswerCol = document.createElement('div');
+            userAnswerCol.className = 'flex-1';
+            let userDisplay = '';
+            if (q.題型 === '是非題') {
+                userDisplay = userAnswer === 'O' ? '是' : (userAnswer === 'X' ? '非' : '未作答');
+            } else {
+                userDisplay = Array.isArray(userAnswer) && userAnswer.length > 0 ? userAnswer.sort().join('、') : '未作答';
+            }
+            userAnswerCol.innerHTML = `<span class="text-gray-500 font-medium">您的選擇 (內部編號)：</span><br><span class="font-bold text-gray-800 text-lg">${userDisplay}</span>`;
+
+            // Correct answer display
+            const correctAnswerCol = document.createElement('div');
+            correctAnswerCol.className = 'flex-1';
+            let correctDisplay = '';
+            if (q.題型 === '是非題') {
+                correctDisplay = q.答案 === 'O' ? '是' : '非';
+            } else {
+                const correctOptionIndices = q.答案.toString().split('.');
+                correctDisplay = correctOptionIndices.map(rawIdx => {
+                    const idx = ansMap[rawIdx.trim()] || rawIdx.trim();
+                    return `選項${idx}: ${q[`選項${idx}`] || '無此選項資料'}`;
+                }).join('<br>');
+            }
+            correctAnswerCol.innerHTML = `<span class="text-gray-500 font-medium">正確答案：</span><br><span class="font-bold text-gray-800 text-lg">${correctDisplay}</span>`;
+            
+            flexContainer.appendChild(userAnswerCol);
+            flexContainer.appendChild(correctAnswerCol);
+
+            reviewItem.appendChild(questionText);
+            reviewItem.appendChild(answerStatus);
+            reviewItem.appendChild(flexContainer);
+            
+            // 詳解區塊
+            const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
+            const explanationBlock = document.createElement('div');
+            explanationBlock.className = 'mt-4 p-4 bg-blue-50 text-blue-900 rounded-lg border border-blue-100';
+            explanationBlock.innerHTML = `<span class="font-semibold">💡 詳解：</span><br>${explanation}`;
+            reviewItem.appendChild(explanationBlock);
+            
+            reviewQuestionsEl.appendChild(reviewItem);
+        });
+    }
+
+    function isAnswerCorrect(question, userAnswer) {
+        if (question.題型 === '是非題') {
+            return userAnswer === question.答案;
+        } else {
+            const userSelected = Array.isArray(userAnswer) ? userAnswer.sort() : (userAnswer ? [userAnswer] : []);
+            const correctAnswers = question.答案.toString().split('.')
+                .map(val => ansMap[val.trim()] || val.trim())
+                .sort();
+            
+            if (correctAnswers.length !== userSelected.length) return false;
+            return correctAnswers.every((val, index) => val === userSelected[index]);
+        }
+    }
+    
+    backToResultsBtn.addEventListener('click', () => {
+        reviewPage.classList.add('hidden');
+        resultsPage.classList.remove('hidden');
+    });
+
+    restartBtn.addEventListener('click', () => {
+        resultsPage.classList.add('hidden');
+        settingsPage.classList.remove('hidden');
+    });
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
+
+</body>
+</html>
