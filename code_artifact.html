@@ -9,9 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* 定義全局 CSS 變數，用於主題切換 */
         :root {
-            /* 預設 (Light) */
             --theme-bg: #f3f4f6;
             --theme-card: #ffffff;
             --theme-card-alt: #f9fafb;
@@ -19,16 +17,12 @@
             --theme-text-muted: #4b5563;
             --theme-border: #e5e7eb;
             --theme-input-bg: #e5e7eb;
-            
             --theme-primary: #3b82f6;
             --theme-primary-hover: #2563eb;
             --theme-primary-text: #ffffff;
-            
             --theme-secondary: #d1d5db;
             --theme-secondary-hover: #9ca3af;
             --theme-secondary-text: #1f2937;
-
-            /* 提示區塊顏色 */
             --theme-info-bg: #eff6ff;
             --theme-info-text: #1e40af;
             --theme-info-border: #bfdbfe;
@@ -39,8 +33,6 @@
             --theme-error-text: #991b1b;
             --theme-error-border: #fecaca;
         }
-
-        /* 暗黑模式 (Dark) */
         [data-theme="dark"] {
             --theme-bg: #111827;
             --theme-card: #1f2937;
@@ -49,7 +41,6 @@
             --theme-text-muted: #9ca3af;
             --theme-border: #4b5563;
             --theme-input-bg: #374151;
-            
             --theme-info-bg: #1e3a8a;
             --theme-info-text: #bfdbfe;
             --theme-info-border: #1e40af;
@@ -60,8 +51,6 @@
             --theme-error-text: #fecaca;
             --theme-error-border: #991b1b;
         }
-
-        /* 高對比模式 (High Contrast) */
         [data-theme="hc"] {
             --theme-bg: #000000;
             --theme-card: #000000;
@@ -70,14 +59,12 @@
             --theme-text-muted: #ffffff;
             --theme-border: #ffff00;
             --theme-input-bg: #222222;
-
             --theme-primary: #ffff00;
             --theme-primary-hover: #cccc00;
             --theme-primary-text: #000000;
             --theme-secondary: #ffffff;
             --theme-secondary-hover: #cccccc;
             --theme-secondary-text: #000000;
-            
             --theme-info-bg: #000000;
             --theme-info-text: #00ffff;
             --theme-info-border: #00ffff;
@@ -88,8 +75,6 @@
             --theme-error-text: #ff0000;
             --theme-error-border: #ff0000;
         }
-
-        /* 護眼模式 (Eye Care) */
         [data-theme="eye"] {
             --theme-bg: #c7edcc;
             --theme-card: #dcefd0;
@@ -98,7 +83,6 @@
             --theme-text-muted: #444444;
             --theme-border: #a3c9a8;
             --theme-input-bg: #e8f5e9;
-            
             --theme-info-bg: #dcefd0;
             --theme-info-text: #1a1a1a;
             --theme-info-border: #a3c9a8;
@@ -109,22 +93,14 @@
             --theme-error-text: #8b0000;
             --theme-error-border: #ff9999;
         }
-
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--theme-bg);
             color: var(--theme-text);
             transition: background-color 0.3s, color 0.3s;
         }
-        
-        .container {
-            max-width: 900px;
-        }
-        .bg-card {
-            background-color: var(--theme-card);
-        }
-        
-        /* 按鈕樣式改用變數 */
+        .container { max-width: 900px; }
+        .bg-card { background-color: var(--theme-card); }
         .btn-primary {
             background-color: var(--theme-primary);
             color: var(--theme-primary-text);
@@ -134,10 +110,7 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             transition: background-color 0.3s ease-in-out;
         }
-        .btn-primary:hover {
-            background-color: var(--theme-primary-hover);
-        }
-        
+        .btn-primary:hover { background-color: var(--theme-primary-hover); }
         .btn-secondary {
             background-color: var(--theme-secondary);
             color: var(--theme-secondary-text);
@@ -147,23 +120,15 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             transition: background-color 0.3s ease-in-out;
         }
-        .btn-secondary:hover {
-            background-color: var(--theme-secondary-hover);
-        }
-
-        /* 覆寫特定 Tailwind 類別以支援變數 (避免在 HTML 寫太長) */
+        .btn-secondary:hover { background-color: var(--theme-secondary-hover); }
         .theme-border { border-color: var(--theme-border) !important; }
         .theme-text-muted { color: var(--theme-text-muted) !important; }
         .theme-bg-input { background-color: var(--theme-input-bg) !important; }
         .theme-bg-alt { background-color: var(--theme-card-alt) !important; }
-        
-        /* 讀題模式正確選項的醫目樣式 */
         .option-read-correct {
             background-color: var(--theme-success-bg) !important;
             border-color: var(--theme-success-border) !important;
         }
-
-        /* 浮動主題按鈕 */
         .theme-fab {
             position: fixed;
             bottom: 1.5rem;
@@ -183,6 +148,48 @@
             transition: transform 0.2s;
         }
         .theme-fab:hover { transform: scale(1.1); }
+
+        .feedback-box { border-width: 1px; border-style: solid; }
+        .feedback-success {
+            background-color: var(--theme-success-bg) !important;
+            border-color: var(--theme-success-border) !important;
+            color: var(--theme-success-text) !important;
+        }
+        .feedback-error {
+            background-color: var(--theme-error-bg) !important;
+            border-color: var(--theme-error-border) !important;
+            color: var(--theme-error-text) !important;
+        }
+        .feedback-info {
+            background-color: var(--theme-info-bg) !important;
+            border-color: var(--theme-info-border) !important;
+            color: var(--theme-info-text) !important;
+        }
+        .confidence-btn-active-unsure {
+            background-color: var(--theme-error-bg) !important;
+            border-color: var(--theme-error-border) !important;
+            color: var(--theme-error-text) !important;
+        }
+        .confidence-btn-active-confident {
+            background-color: var(--theme-success-bg) !important;
+            border-color: var(--theme-success-border) !important;
+            color: var(--theme-success-text) !important;
+        }
+        .confidence-btn-inactive {
+            background-color: var(--theme-card) !important;
+            border-color: var(--theme-border) !important;
+            color: var(--theme-text) !important;
+        }
+        .overview-item-answered {
+            background-color: var(--theme-info-bg) !important;
+            border-color: var(--theme-info-border) !important;
+            color: var(--theme-info-text) !important;
+        }
+        .overview-item-unanswered {
+            background-color: var(--theme-card-alt) !important;
+            border-color: var(--theme-border) !important;
+            color: var(--theme-text) !important;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
@@ -190,7 +197,6 @@
 <div id="app" class="container mx-auto p-8 rounded-2xl shadow-xl bg-card my-8 relative transition-colors duration-300">
     <h1 class="text-3xl font-bold text-center mb-6" style="color: var(--theme-text)">測驗練習應用程式</h1>
 
-    <!-- 設定頁面 -->
     <div id="settings-page" class="space-y-6">
         <div>
             <label for="file-input" class="block font-medium mb-2 theme-text-muted">上傳您的題庫檔案 (CSV 或 XLSX)</label>
@@ -239,9 +245,7 @@
                     <span class="font-medium text-sm theme-text-muted">勾選要合併的科目並設定比例：</span>
                     <button id="even-distribute-btn" class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition">平分比例</button>
                 </div>
-                <div id="multi-subject-list" class="space-y-2 max-h-48 overflow-y-auto mb-3 pr-2">
-                    <!-- 動態產生選項 -->
-                </div>
+                <div id="multi-subject-list" class="space-y-2 max-h-48 overflow-y-auto mb-3 pr-2"></div>
                 <div class="text-right font-medium text-sm pt-2 theme-border border-t">
                     目前總比例：<span id="total-ratio" class="text-red-500">0</span>%
                 </div>
@@ -265,10 +269,8 @@
                 </label>
             </div>
 
-            <!-- 進階篩選區塊 -->
             <div id="answer-filter-section" class="mt-3 p-4 rounded-lg theme-border border hidden" style="background-color: var(--theme-info-bg)">
                 <label class="block font-bold mb-3 text-sm" style="color: var(--theme-info-text)">進階篩選：只看特定答案的題目 (若全不勾選則代表全考)</label>
-                
                 <div id="filter-tf-group" class="flex space-x-4 hidden">
                     <label class="flex items-center cursor-pointer px-4 py-2 rounded-full theme-border border shadow-sm bg-card">
                         <input type="checkbox" id="filter-tf-o" class="form-checkbox text-blue-600 w-4 h-4 rounded">
@@ -279,7 +281,6 @@
                         <span class="ml-2 text-sm font-medium">答案為「否 (X)」</span>
                     </label>
                 </div>
-
                 <div id="filter-mc-group" class="hidden flex flex-wrap gap-3"></div>
             </div>
         </div>
@@ -335,16 +336,14 @@
         <button id="start-exam-btn" class="w-full btn-primary py-3 text-lg mt-4">開始</button>
     </div>
 
-    <!-- 作答狀態總覽按鈕 -->
     <button id="status-overview-btn" class="hidden absolute top-4 right-4 z-20 btn-secondary text-xs sm:text-sm px-3 py-2">📋 作答總覽</button>
 
-    <!-- 測驗/讀題頁面 -->
     <div id="exam-page" class="hidden">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold" id="exam-title"></h2>
             <div id="timer" class="text-2xl font-semibold theme-text-muted"></div>
         </div>
-        
+
         <div class="px-4 py-3 rounded-lg mb-4 font-medium hidden border" id="practice-mode-indicator" style="background-color: var(--theme-info-bg); color: var(--theme-info-text); border-color: var(--theme-info-border);">
             🛠️ 練習模式：作答後請點擊下方「確認答案」查看結果。
         </div>
@@ -357,14 +356,14 @@
             <div class="theme-bg-alt p-6 rounded-xl theme-border border shadow-sm transition-colors duration-300">
                 <p class="text-lg font-semibold mb-4" id="question-text"></p>
                 <div id="options-container" class="space-y-3"></div>
-                
+
                 <div id="confidence-section" class="hidden flex items-center flex-wrap gap-2 mt-4 pt-4 theme-border border-t">
                     <span class="text-sm font-medium mr-1 theme-text-muted">信心標記：</span>
                     <button type="button" id="confidence-unsure-btn" class="confidence-btn px-3 py-1 rounded-full theme-border border text-sm bg-card transition">❓ 不確定</button>
                     <button type="button" id="confidence-confident-btn" class="confidence-btn px-3 py-1 rounded-full theme-border border text-sm bg-card transition">✅ 有把握</button>
                 </div>
             </div>
-            
+
             <div id="practice-feedback" class="hidden p-5 rounded-xl mt-4 transition-colors duration-300"></div>
 
             <div class="flex justify-between mt-6">
@@ -375,7 +374,6 @@
         </div>
     </div>
 
-    <!-- 結果頁面 -->
     <div id="results-page" class="hidden text-center space-y-6 py-8">
         <h2 class="text-4xl font-bold">完成</h2>
         <div id="results-summary" class="text-2xl font-medium theme-text-muted"></div>
@@ -386,7 +384,6 @@
         </div>
     </div>
 
-    <!-- 檢討頁面 -->
     <div id="review-page" class="hidden">
         <h2 class="text-3xl font-bold text-center mb-6">試卷檢討</h2>
         <div id="review-questions" class="space-y-8"></div>
@@ -394,7 +391,6 @@
     </div>
 </div>
 
-<!-- 作答狀態總覽浮層 -->
 <div id="status-overview-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity">
     <div class="bg-card rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 relative theme-border border">
         <div class="flex justify-between items-center mb-4">
@@ -405,19 +401,16 @@
     </div>
 </div>
 
-<!-- 主題設定按鈕 (FAB) -->
 <div class="theme-fab" id="open-theme-modal" title="外觀與主題設定">🎨</div>
 
-<!-- 主題設定 Modal -->
 <div id="theme-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
     <div class="bg-card rounded-2xl shadow-xl w-full max-w-md p-6 relative theme-border border transition-colors duration-300">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-xl font-bold">外觀與主題設定</h3>
             <button id="close-theme-modal" class="theme-text-muted hover:opacity-70 text-2xl leading-none">&times;</button>
         </div>
-        
+
         <div class="space-y-6">
-            <!-- 預設模式選擇 -->
             <div>
                 <p class="font-medium mb-3 theme-text-muted">快速套用佈景</p>
                 <div class="grid grid-cols-2 gap-3">
@@ -430,7 +423,6 @@
 
             <hr class="theme-border">
 
-            <!-- 自訂顏色 -->
             <div>
                 <p class="font-medium mb-3 theme-text-muted">自訂專屬顏色</p>
                 <div class="space-y-3">
@@ -473,7 +465,7 @@
     const directReviewCheckbox = document.getElementById('direct-review');
     const startExamBtn = document.getElementById('start-exam-btn');
     const errorMessage = document.getElementById('error-message');
-    
+
     const singleSubjectContainer = document.getElementById('single-subject-container');
     const multiSubjectContainer = document.getElementById('multi-subject-container');
     const multiSubjectList = document.getElementById('multi-subject-list');
@@ -483,23 +475,23 @@
     const settingExamTimeDiv = document.getElementById('setting-exam-time');
     const settingPassRateDiv = document.getElementById('setting-pass-rate');
     const settingDirectReviewDiv = document.getElementById('setting-direct-review');
-    
+
     const settingsPage = document.getElementById('settings-page');
     const examPage = document.getElementById('exam-page');
     const resultsPage = document.getElementById('results-page');
     const reviewPage = document.getElementById('review-page');
-    
+
     const timerEl = document.getElementById('timer');
     const questionTextEl = document.getElementById('question-text');
     const optionsContainer = document.getElementById('options-container');
     const practiceFeedback = document.getElementById('practice-feedback');
     const practiceModeIndicator = document.getElementById('practice-mode-indicator');
     const readModeIndicator = document.getElementById('read-mode-indicator');
-    
+
     const prevBtn = document.getElementById('prev-btn');
     const confirmBtn = document.getElementById('confirm-btn');
     const nextBtn = document.getElementById('next-btn');
-    
+
     const resultsSummaryEl = document.getElementById('results-summary');
     const passFailMessageEl = document.getElementById('pass-fail-message');
     const reviewQuestionsEl = document.getElementById('review-questions');
@@ -515,7 +507,6 @@
     const confidenceUnsureBtn = document.getElementById('confidence-unsure-btn');
     const confidenceConfidentBtn = document.getElementById('confidence-confident-btn');
 
-    // 主題相關元素
     const openThemeModalBtn = document.getElementById('open-theme-modal');
     const themeModal = document.getElementById('theme-modal');
     const closeThemeModalBtn = document.getElementById('close-theme-modal');
@@ -539,54 +530,70 @@
     let isReadMode = false;
     let subjectMode = 'single';
 
-    // --- 主題切換邏輯 ---
+    function safeStorage(action, key, value) {
+        try {
+            if (action === 'get') return localStorage.getItem(key);
+            if (action === 'set') return localStorage.setItem(key, value);
+            if (action === 'remove') return localStorage.removeItem(key);
+        } catch (e) {
+            console.warn('localStorage 無法使用：', e);
+            return null;
+        }
+    }
+
     function setTheme(themeName) {
-        // 清除自訂樣式 (如果有)
         document.documentElement.removeAttribute('style');
-        
         if (themeName === 'default') {
             document.documentElement.removeAttribute('data-theme');
         } else {
             document.documentElement.setAttribute('data-theme', themeName);
         }
-        localStorage.setItem('quiz-theme', themeName);
+        safeStorage('set', 'quiz-theme', themeName);
     }
 
     function applyCustomTheme() {
         const bg = customBg.value;
         const card = customCard.value;
         const text = customText.value;
-        
-        document.documentElement.setAttribute('data-theme', 'custom');
-        document.documentElement.style.setProperty('--theme-bg', bg);
-        document.documentElement.style.setProperty('--theme-card', card);
-        document.documentElement.style.setProperty('--theme-text', text);
-        
-        // 簡單的混色邏輯來產生邊框與次要顏色
-        document.documentElement.style.setProperty('--theme-border', text);
-        document.documentElement.style.setProperty('--theme-text-muted', text);
-        document.documentElement.style.setProperty('--theme-input-bg', bg);
-        document.documentElement.style.setProperty('--theme-card-alt', card);
 
-        localStorage.setItem('quiz-theme', 'custom');
-        localStorage.setItem('quiz-custom-colors', JSON.stringify({bg, card, text}));
+        const customVars = {
+            '--theme-bg': bg,
+            '--theme-card': card,
+            '--theme-text': text,
+            '--theme-border': text,
+            '--theme-text-muted': text,
+            '--theme-input-bg': bg,
+            '--theme-card-alt': card,
+        };
+
+        document.documentElement.setAttribute('data-theme', 'custom');
+        Object.entries(customVars).forEach(([prop, val]) => {
+            document.documentElement.style.setProperty(prop, val);
+        });
+
+        safeStorage('set', 'quiz-theme', 'custom');
+        safeStorage('set', 'quiz-custom-colors', JSON.stringify({ bg, card, text }));
     }
 
-    // 初始化載入主題
-    const savedTheme = localStorage.getItem('quiz-theme');
+    const savedTheme = safeStorage('get', 'quiz-theme');
     if (savedTheme === 'custom') {
-        const colors = JSON.parse(localStorage.getItem('quiz-custom-colors'));
-        if(colors) {
-            customBg.value = colors.bg;
-            customCard.value = colors.card;
-            customText.value = colors.text;
-            applyCustomTheme();
+        try {
+            const raw = safeStorage('get', 'quiz-custom-colors');
+            const colors = raw ? JSON.parse(raw) : null;
+            if (colors) {
+                customBg.value = colors.bg;
+                customCard.value = colors.card;
+                customText.value = colors.text;
+                applyCustomTheme();
+            }
+        } catch (e) {
+            console.warn('自訂主題顏色解析失敗，改用預設主題：', e);
+            setTheme('default');
         }
     } else if (savedTheme) {
         setTheme(savedTheme);
     }
 
-    // 主題面板事件
     openThemeModalBtn.addEventListener('click', () => themeModal.classList.remove('hidden'));
     closeThemeModalBtn.addEventListener('click', () => themeModal.classList.add('hidden'));
     themeModal.addEventListener('click', (e) => {
@@ -605,10 +612,8 @@
         customBg.value = '#f3f4f6';
         customCard.value = '#ffffff';
         customText.value = '#1f2937';
-        localStorage.removeItem('quiz-custom-colors');
+        safeStorage('remove', 'quiz-custom-colors');
     });
-    // --- 結束主題邏輯 ---
-
 
     document.querySelectorAll('input[name="subject-mode"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
@@ -672,10 +677,10 @@
         } else if (type === '選擇題') {
             tfGroup.classList.add('hidden');
             mcGroup.classList.remove('hidden');
-            
+
             mcGroup.innerHTML = '';
             let allPossibleAnswers = new Set();
-            
+
             selectedSubjects.forEach(subj => {
                 if (allQuestions[subj] && allQuestions[subj]['選擇題']) {
                     allQuestions[subj]['選擇題'].forEach(q => {
@@ -685,7 +690,7 @@
             });
 
             const uniqueAnswers = [...allPossibleAnswers].sort();
-            
+
             if(uniqueAnswers.length === 0) {
                 mcGroup.innerHTML = '<span class="text-sm theme-text-muted">無可用的答案選項</span>';
                 return;
@@ -693,18 +698,17 @@
 
             uniqueAnswers.forEach(ans => {
                 const label = document.createElement('label');
-                // 套用主題變數的 class
                 label.className = 'flex items-center cursor-pointer px-4 py-2 rounded-full theme-border border shadow-sm bg-card hover:opacity-80 transition duration-200';
-                
+
                 const input = document.createElement('input');
                 input.type = 'checkbox';
                 input.className = 'form-checkbox text-blue-600 w-4 h-4 rounded filter-mc-checkbox';
                 input.value = ans;
-                
+
                 const span = document.createElement('span');
                 span.className = 'ml-2 text-sm font-medium';
                 span.textContent = `答案: ${ans}`;
-                
+
                 label.appendChild(input);
                 label.appendChild(span);
                 mcGroup.appendChild(label);
@@ -739,11 +743,11 @@
                 reader.onload = function(e) {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
+
                     workbook.SheetNames.forEach(sheetName => {
                         const worksheet = workbook.Sheets[sheetName];
                         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                        
+
                         if (sheetName.includes('是非題')) {
                             allQuestions[subject]['是非題'] = allQuestions[subject]['是非題'].concat(jsonData.filter(q => q.題型 && q.答案 && q.題目));
                         } else if (sheetName.includes('選擇題')) {
@@ -789,7 +793,7 @@
 
     function renderSubjects(subjects) {
         subjectSelect.innerHTML = '<option value="">請選擇科目</option>';
-        multiSubjectList.innerHTML = ''; 
+        multiSubjectList.innerHTML = '';
 
         subjects.forEach(subject => {
             const option = document.createElement('option');
@@ -798,7 +802,6 @@
             subjectSelect.appendChild(option);
 
             const div = document.createElement('div');
-            // 套用主題顏色變數
             div.className = 'flex items-center justify-between theme-bg-alt p-2 theme-border border rounded transition';
             div.innerHTML = `
                 <label class="flex items-center cursor-pointer flex-1 overflow-hidden">
@@ -838,22 +841,21 @@
         });
         total = Math.round(total * 10) / 10;
         totalRatioEl.textContent = total;
-        // 成功比例維持顯示 (紅色代表錯誤，綠色代表成功)
         if (total === 100) {
-            totalRatioEl.style.color = '#10B981'; // Tailwind green-500
+            totalRatioEl.style.color = '#10B981';
         } else {
-            totalRatioEl.style.color = '#EF4444'; // Tailwind red-500
+            totalRatioEl.style.color = '#EF4444';
         }
     }
 
     evenDistributeBtn.addEventListener('click', () => {
         const checkedBoxes = Array.from(document.querySelectorAll('.multi-subject-checkbox:checked'));
         if(checkedBoxes.length === 0) return;
-        
+
         const avg = 100 / checkedBoxes.length;
         let currentSum = 0;
         const inputs = checkedBoxes.map(cb => cb.closest('div').querySelector('.multi-subject-ratio'));
-        
+
         inputs.forEach((input, index) => {
             if (index === inputs.length - 1) {
                 let remainder = (100 - currentSum).toFixed(1);
@@ -883,7 +885,7 @@
         } else {
             pool = allQuestions[subject][type] || [];
         }
-        
+
         pool = pool.map(q => ({ ...q, _source: subject }));
 
         if (type === '是非題') {
@@ -905,7 +907,7 @@
         const testMode = document.querySelector('input[name="test-mode"]:checked').value;
         isPracticeMode = testMode === 'practice';
         isReadMode = testMode === 'read';
-        
+
         const questionType = document.querySelector('input[name="question-type"]:checked').value;
         const examScope = document.querySelector('input[name="exam-scope"]:checked').value;
         const examTime = parseInt(examTimeInput.value, 10);
@@ -950,7 +952,7 @@
                 }
                 examQuestions = questionPool.filter(q => parseInt(q.題號) >= start && parseInt(q.題號) <= end);
             }
-            
+
             document.getElementById('exam-title').textContent = `${subject} - ${questionType}`;
 
         } else {
@@ -968,7 +970,7 @@
                     totalPercent += ratio;
                     subjectRatios.push({ subject: cb.value, ratio: ratio });
                 });
-                
+
                 if (Math.abs(totalPercent - 100) > 0.1) {
                     showError('多科目合併測驗時，總比例必須剛好為 100%。');
                     return;
@@ -993,7 +995,7 @@
 
                 let allocations = [];
                 let currentAllocatedSum = 0;
-                
+
                 subjectRatios.forEach(sr => {
                     const exact = countInputVal * (sr.ratio / 100);
                     const integerPart = Math.floor(exact);
@@ -1034,7 +1036,7 @@
                     examQuestions = examQuestions.concat(pool);
                 });
             }
-            
+
             document.getElementById('exam-title').textContent = `綜合測驗 - ${questionType}`;
         }
 
@@ -1051,10 +1053,10 @@
         confirmedAnswers = {};
         questionConfidence = {};
         currentQuestionIndex = 0;
-        
+
         settingsPage.classList.add('hidden');
         examPage.classList.remove('hidden');
-        
+
         practiceModeIndicator.classList.toggle('hidden', !isPracticeMode);
         readModeIndicator.classList.toggle('hidden', !isReadMode);
         confidenceSection.classList.toggle('hidden', isReadMode);
@@ -1087,14 +1089,14 @@
         const shuffledPool = shuffleArray([...pool]);
         return shuffledPool.slice(0, count);
     }
-    
+
     function updateTimer() {
         const minutes = Math.floor(timeRemaining / 60);
         const seconds = timeRemaining % 60;
         timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        if (timeRemaining <= 60) { timerEl.style.color = '#EF4444'; timerEl.style.fontWeight = 'bold'; } 
+        if (timeRemaining <= 60) { timerEl.style.color = '#EF4444'; timerEl.style.fontWeight = 'bold'; }
         else { timerEl.style.color = ''; timerEl.style.fontWeight = ''; }
-        
+
         if (timeRemaining <= 0) {
             clearInterval(timerInterval);
             endExam();
@@ -1107,14 +1109,13 @@
 
         const question = examQuestions[currentQuestionIndex];
         const questionNumber = currentQuestionIndex + 1;
-        
-        // 來源標籤使用主題顏色變數
+
         const sourceTag = question._source ? `<span class="inline-block px-2 py-1 rounded mb-2 mr-2 border text-xs" style="background-color: var(--theme-info-bg); color: var(--theme-info-text); border-color: var(--theme-info-border);">來源：${question._source}</span>` : '';
-        
+
         questionTextEl.innerHTML = `${sourceTag}<br><span class="font-bold mr-2 theme-text-muted">${questionNumber}/${examQuestions.length}</span> ${question.題目}`;
         optionsContainer.innerHTML = '';
         practiceFeedback.classList.add('hidden');
-        
+
         const isMultiSelect = question.題型 === '選擇題' && question.答案.toString().includes('.');
         const inputType = isMultiSelect ? 'checkbox' : 'radio';
 
@@ -1129,7 +1130,7 @@
                 }
             }
         }
-        
+
         if (userAnswers[currentQuestionIndex]) {
             const currentAnswers = Array.isArray(userAnswers[currentQuestionIndex]) ? userAnswers[currentQuestionIndex] : [userAnswers[currentQuestionIndex]];
             currentAnswers.forEach(answer => {
@@ -1163,7 +1164,7 @@
                 prevBtn.classList.toggle('hidden', currentQuestionIndex === 0);
             }
             nextBtn.textContent = (currentQuestionIndex === examQuestions.length - 1) ? '結束測驗' : '下一題 >';
-        } 
+        }
         else {
             confirmBtn.classList.add('hidden');
             nextBtn.classList.remove('hidden');
@@ -1174,9 +1175,8 @@
 
     function createOptionElement(value, text, dataValue, inputType) {
         const label = document.createElement('label');
-        // 使用主題變數
         label.className = 'flex items-center space-x-3 p-4 rounded-lg theme-border border cursor-pointer transition duration-200 ease-in-out bg-card hover:opacity-80';
-        
+
         const input = document.createElement('input');
         input.type = inputType;
         input.className = `text-blue-600 focus:ring-blue-500 w-5 h-5 ${inputType === 'radio' ? 'form-radio' : 'form-checkbox rounded'}`;
@@ -1187,7 +1187,7 @@
         input.addEventListener('change', () => {
             const question = examQuestions[currentQuestionIndex];
             const isMultiSelect = question.題型 === '選擇題' && question.答案.toString().includes('.');
-            
+
             if (isMultiSelect) {
                 const checkedInputs = Array.from(optionsContainer.querySelectorAll('input:checked'));
                 userAnswers[currentQuestionIndex] = checkedInputs.map(inp => inp.value);
@@ -1195,26 +1195,31 @@
                 userAnswers[currentQuestionIndex] = input.value;
             }
         });
-        
+
         const span = document.createElement('span');
         span.className = 'text-base leading-relaxed';
         span.textContent = `${value}. ${text}`;
-        
+
         label.appendChild(input);
         label.appendChild(span);
         optionsContainer.appendChild(label);
     }
-    
+
+    function applyFeedbackStyle(el, type) {
+        el.classList.remove('hidden', 'feedback-success', 'feedback-error', 'feedback-info');
+        el.classList.add('feedback-box', `feedback-${type}`);
+        el.style.borderWidth = '';
+        el.style.backgroundColor = '';
+        el.style.borderColor = '';
+        el.style.color = '';
+    }
+
     function showReadFeedback() {
         const q = examQuestions[currentQuestionIndex];
         const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
-        
-        practiceFeedback.classList.remove('hidden');
-        practiceFeedback.style.backgroundColor = 'var(--theme-info-bg)';
-        practiceFeedback.style.borderColor = 'var(--theme-info-border)';
-        practiceFeedback.style.color = 'var(--theme-info-text)';
-        practiceFeedback.style.borderWidth = '1px';
-        
+
+        applyFeedbackStyle(practiceFeedback, 'info');
+
         let correctDisplay;
         if (q.題型 === '是非題') {
             correctDisplay = q.答案 === 'O' ? '是' : '非';
@@ -1254,11 +1259,11 @@
             setTimeout(() => { errorMessage.classList.add('hidden'); }, 2000);
             return;
         }
-        
+
         confirmedAnswers[currentQuestionIndex] = true;
         showPracticeFeedback();
         disableOptions();
-        
+
         confirmBtn.classList.add('hidden');
         nextBtn.classList.remove('hidden');
     });
@@ -1267,10 +1272,7 @@
         const q = examQuestions[currentQuestionIndex];
         const isCorrect = isAnswerCorrect(q, userAnswers[currentQuestionIndex]);
         const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
-        
-        practiceFeedback.classList.remove('hidden');
-        practiceFeedback.style.borderWidth = '1px';
-        
+
         let correctDisplay;
         if (q.題型 === '是非題') {
             correctDisplay = q.答案 === 'O' ? '是' : '非';
@@ -1283,9 +1285,7 @@
         }
 
         if (isCorrect) {
-            practiceFeedback.style.backgroundColor = 'var(--theme-success-bg)';
-            practiceFeedback.style.borderColor = 'var(--theme-success-border)';
-            practiceFeedback.style.color = 'var(--theme-success-text)';
+            applyFeedbackStyle(practiceFeedback, 'success');
             practiceFeedback.innerHTML = `
                 <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">✅</span> 答對了！</p>
                 <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border" style="border-color: var(--theme-success-border)">
@@ -1296,9 +1296,7 @@
                 </div>
             `;
         } else {
-            practiceFeedback.style.backgroundColor = 'var(--theme-error-bg)';
-            practiceFeedback.style.borderColor = 'var(--theme-error-border)';
-            practiceFeedback.style.color = 'var(--theme-error-text)';
+            applyFeedbackStyle(practiceFeedback, 'error');
             practiceFeedback.innerHTML = `
                 <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">❌</span> 答錯了！</p>
                 <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border" style="border-color: var(--theme-error-border)">
@@ -1339,7 +1337,7 @@
             displayQuestion();
         }
     });
-    
+
     function endExam() {
         clearInterval(timerInterval);
         examPage.classList.add('hidden');
@@ -1347,7 +1345,7 @@
         if (isReadMode) {
             resultsSummaryEl.textContent = `您已瀏覽完畢共 ${examQuestions.length} 題。`;
             passFailMessageEl.textContent = '';
-            passFailMessageEl.className = 'text-3xl font-bold'; 
+            passFailMessageEl.className = 'text-3xl font-bold';
             reviewExamBtn.classList.add('hidden');
             resultsPage.classList.remove('hidden');
             return;
@@ -1363,15 +1361,15 @@
         const totalQuestions = examQuestions.length;
         const accuracy = (correctCount / totalQuestions) * 100;
         const passRate = parseInt(passRateInput.value, 10);
-        
+
         resultsSummaryEl.textContent = `您答對了 ${correctCount} 題，總共 ${totalQuestions} 題。正確率為 ${accuracy.toFixed(2)}%。`;
 
         if (accuracy >= passRate) {
             passFailMessageEl.textContent = '恭喜您，通過測驗！';
-            passFailMessageEl.style.color = '#10B981'; // green-500
+            passFailMessageEl.style.color = '#10B981';
         } else {
             passFailMessageEl.textContent = '很遺憾，您未通過測驗。';
-            passFailMessageEl.style.color = '#EF4444'; // red-500
+            passFailMessageEl.style.color = '#EF4444';
         }
 
         reviewExamBtn.classList.remove('hidden');
@@ -1383,7 +1381,7 @@
             resultsPage.classList.remove('hidden');
         }
     }
-    
+
     reviewExamBtn.addEventListener('click', () => {
         resultsPage.classList.add('hidden');
         reviewPage.classList.remove('hidden');
@@ -1394,9 +1392,8 @@
         reviewQuestionsEl.innerHTML = '';
         examQuestions.forEach((q, index) => {
             const reviewItem = document.createElement('div');
-            // 使用變數套用卡片風格
             reviewItem.className = 'bg-card p-6 rounded-xl theme-border border shadow-sm space-y-4';
-            
+
             const questionText = document.createElement('p');
             questionText.className = 'text-lg font-semibold';
             questionText.innerHTML = `<span class="font-bold mr-2 theme-text-muted">${index + 1}.</span> ${q.題目}`;
@@ -1404,11 +1401,11 @@
             const answerStatus = document.createElement('div');
             const userAnswer = userAnswers[index];
             const isCorrect = isAnswerCorrect(q, userAnswer);
-            
+
             answerStatus.className = 'font-bold text-lg mb-2';
             answerStatus.textContent = isCorrect ? '✅ 您的答案：正確' : `❌ 您的答案：錯誤`;
             answerStatus.style.color = isCorrect ? '#10B981' : '#EF4444';
-            
+
             const flexContainer = document.createElement('div');
             flexContainer.className = 'flex flex-col md:flex-row md:space-x-8 space-y-4 md:space-y-0 p-4 theme-bg-alt rounded-lg theme-border border';
 
@@ -1437,14 +1434,14 @@
                 }).join('<br>');
             }
             correctAnswerCol.innerHTML = `<span class="font-medium theme-text-muted">正確答案：</span><br><span class="font-bold text-lg">${correctDisplay}</span>`;
-            
+
             flexContainer.appendChild(userAnswerCol);
             flexContainer.appendChild(correctAnswerCol);
 
             reviewItem.appendChild(questionText);
             reviewItem.appendChild(answerStatus);
             reviewItem.appendChild(flexContainer);
-            
+
             const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
             const explanationBlock = document.createElement('div');
             explanationBlock.className = 'mt-4 p-4 rounded-lg border';
@@ -1453,7 +1450,7 @@
             explanationBlock.style.borderColor = 'var(--theme-info-border)';
             explanationBlock.innerHTML = `<span class="font-semibold">💡 詳解：</span><br>${explanation}`;
             reviewItem.appendChild(explanationBlock);
-            
+
             reviewQuestionsEl.appendChild(reviewItem);
         });
     }
@@ -1466,12 +1463,12 @@
             const correctAnswers = question.答案.toString().split('.')
                 .map(val => ansMap[val.trim()] || val.trim())
                 .sort();
-            
+
             if (correctAnswers.length !== userSelected.length) return false;
             return correctAnswers.every((val, index) => val === userSelected[index]);
         }
     }
-    
+
     backToResultsBtn.addEventListener('click', () => {
         reviewPage.classList.add('hidden');
         resultsPage.classList.remove('hidden');
@@ -1508,26 +1505,17 @@
         confidenceSection.classList.toggle('hidden', isReadMode);
         const current = questionConfidence[currentQuestionIndex];
 
-        // 使用行內樣式覆蓋，以適應不同主題
-        if (current === 'unsure') {
-            confidenceUnsureBtn.style.backgroundColor = 'var(--theme-error-bg)';
-            confidenceUnsureBtn.style.borderColor = 'var(--theme-error-border)';
-            confidenceUnsureBtn.style.color = 'var(--theme-error-text)';
-        } else {
-            confidenceUnsureBtn.style.backgroundColor = 'var(--theme-card)';
-            confidenceUnsureBtn.style.borderColor = 'var(--theme-border)';
-            confidenceUnsureBtn.style.color = 'var(--theme-text)';
-        }
+        setConfidenceBtnState(confidenceUnsureBtn, current === 'unsure', 'unsure');
+        setConfidenceBtnState(confidenceConfidentBtn, current === 'confident', 'confident');
+    }
 
-        if (current === 'confident') {
-            confidenceConfidentBtn.style.backgroundColor = 'var(--theme-success-bg)';
-            confidenceConfidentBtn.style.borderColor = 'var(--theme-success-border)';
-            confidenceConfidentBtn.style.color = 'var(--theme-success-text)';
-        } else {
-            confidenceConfidentBtn.style.backgroundColor = 'var(--theme-card)';
-            confidenceConfidentBtn.style.borderColor = 'var(--theme-border)';
-            confidenceConfidentBtn.style.color = 'var(--theme-text)';
-        }
+    function setConfidenceBtnState(btn, isActive, activeType) {
+        btn.classList.remove(
+            'confidence-btn-active-unsure',
+            'confidence-btn-active-confident',
+            'confidence-btn-inactive'
+        );
+        btn.classList.add(isActive ? `confidence-btn-active-${activeType}` : 'confidence-btn-inactive');
     }
 
     statusOverviewBtn.addEventListener('click', () => {
@@ -1565,18 +1553,8 @@
             const isCurrent = index === currentQuestionIndex;
 
             const item = document.createElement('div');
-            item.className = `p-3 rounded-lg border text-sm transition-colors ${isCurrent ? 'ring-2 ring-blue-400' : ''}`;
-            
-            // 依據是否作答動態給予主題背景
-            if (answered) {
-                item.style.backgroundColor = 'var(--theme-info-bg)';
-                item.style.borderColor = 'var(--theme-info-border)';
-                item.style.color = 'var(--theme-info-text)';
-            } else {
-                item.style.backgroundColor = 'var(--theme-card-alt)';
-                item.style.borderColor = 'var(--theme-border)';
-                item.style.color = 'var(--theme-text)';
-            }
+            const statusClass = answered ? 'overview-item-answered' : 'overview-item-unanswered';
+            item.className = `p-3 rounded-lg border text-sm transition-colors ${statusClass} ${isCurrent ? 'ring-2 ring-blue-400' : ''}`;
 
             item.innerHTML = `
                 <div class="font-bold flex items-center justify-between">
