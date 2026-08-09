@@ -51,7 +51,7 @@
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-<div id="app" class="container mx-auto p-8 rounded-2xl shadow-xl bg-card my-8">
+<div id="app" class="container mx-auto p-8 rounded-2xl shadow-xl bg-card my-8 relative">
     <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">測驗練習應用程式</h1>
 
     <!-- 設定頁面 -->
@@ -203,6 +203,9 @@
         <button id="start-exam-btn" class="w-full btn-primary py-3 text-lg mt-4">開始</button>
     </div>
 
+    <!-- 作答狀態總覽 入口按鈕 (固定於畫面右上角，不跳頁，僅開啟浮層) -->
+    <button id="status-overview-btn" class="hidden absolute top-4 right-4 z-20 bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-medium px-3 py-2 rounded-full shadow hover:bg-indigo-200 transition">📋 作答總覽</button>
+
     <!-- 測驗/讀題頁面 -->
     <div id="exam-page" class="hidden">
         <div class="flex justify-between items-center mb-6">
@@ -222,6 +225,11 @@
             <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
                 <p class="text-lg font-semibold text-gray-800 mb-4" id="question-text"></p>
                 <div id="options-container" class="space-y-3"></div>
+                <div id="confidence-section" class="hidden flex items-center flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200">
+                    <span class="text-sm text-gray-600 font-medium mr-1">信心標記：</span>
+                    <button type="button" id="confidence-unsure-btn" class="confidence-btn px-3 py-1 rounded-full border border-gray-300 text-sm bg-white hover:bg-gray-100 transition">❓ 不確定</button>
+                    <button type="button" id="confidence-confident-btn" class="confidence-btn px-3 py-1 rounded-full border border-gray-300 text-sm bg-white hover:bg-gray-100 transition">✅ 有把握</button>
+                </div>
             </div>
             
             <!-- 練習模式/讀題模式 回饋區塊 -->
@@ -251,6 +259,17 @@
         <h2 class="text-3xl font-bold text-center mb-6 text-gray-800">試卷檢討</h2>
         <div id="review-questions" class="space-y-8"></div>
         <button id="back-to-results-btn" class="w-full btn-secondary mt-8 py-3">返回結果</button>
+    </div>
+
+    <!-- 作答狀態總覽 浮層 (不影響目前測驗狀態，僅供檢視) -->
+    <div id="status-overview-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">作答狀態總覽</h3>
+                <button id="close-status-overview-btn" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="status-overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"></div>
+        </div>
     </div>
 </div>
 
@@ -307,11 +326,20 @@
     const restartBtn = document.getElementById('restart-btn');
     const backToResultsBtn = document.getElementById('back-to-results-btn');
 
+    const statusOverviewBtn = document.getElementById('status-overview-btn');
+    const statusOverviewModal = document.getElementById('status-overview-modal');
+    const closeStatusOverviewBtn = document.getElementById('close-status-overview-btn');
+    const statusOverviewGrid = document.getElementById('status-overview-grid');
+    const confidenceSection = document.getElementById('confidence-section');
+    const confidenceUnsureBtn = document.getElementById('confidence-unsure-btn');
+    const confidenceConfidentBtn = document.getElementById('confidence-confident-btn');
+
     let allQuestions = {};
     let examQuestions = [];
     let currentQuestionIndex = 0;
     let userAnswers = {};
     let confirmedAnswers = {}; // 記錄練習模式下是否已確認答案
+    let questionConfidence = {}; // 記錄每題的信心標記：'unsure' | 'confident'
     let examTimer;
     let timeRemaining;
     let timerInterval;
@@ -767,6 +795,7 @@
 
         userAnswers = {};
         confirmedAnswers = {};
+        questionConfidence = {};
         currentQuestionIndex = 0;
         
         settingsPage.classList.add('hidden');
@@ -775,6 +804,10 @@
         // 指示器與計時器顯示邏輯
         practiceModeIndicator.classList.toggle('hidden', !isPracticeMode);
         readModeIndicator.classList.toggle('hidden', !isReadMode);
+
+        // 信心標記與作答總覽功能：讀題模式不需要作答，故不顯示
+        confidenceSection.classList.toggle('hidden', isReadMode);
+        statusOverviewBtn.classList.toggle('hidden', isReadMode);
 
         if (isReadMode) {
             timerEl.classList.add('hidden'); // 讀題模式不需要計時器
@@ -852,6 +885,11 @@
                 const input = document.querySelector(`input[data-answer='${answer}']`);
                 if (input) { input.checked = true; }
             });
+        }
+
+        // 更新信心標記按鈕的顯示狀態 (依目前題目已標記的狀態呈現)
+        if (!isReadMode) {
+            updateConfidenceButtonsUI();
         }
 
         // 讀題模式專屬介面邏輯
@@ -1200,6 +1238,87 @@
         errorMessage.textContent = message;
         errorMessage.classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ===== 信心標記功能 =====
+    confidenceUnsureBtn.addEventListener('click', () => {
+        toggleConfidence('unsure');
+    });
+    confidenceConfidentBtn.addEventListener('click', () => {
+        toggleConfidence('confident');
+    });
+
+    function toggleConfidence(type) {
+        if (questionConfidence[currentQuestionIndex] === type) {
+            delete questionConfidence[currentQuestionIndex];
+        } else {
+            questionConfidence[currentQuestionIndex] = type;
+        }
+        updateConfidenceButtonsUI();
+    }
+
+    function updateConfidenceButtonsUI() {
+        confidenceSection.classList.toggle('hidden', isReadMode);
+        const current = questionConfidence[currentQuestionIndex];
+
+        confidenceUnsureBtn.classList.toggle('bg-yellow-100', current === 'unsure');
+        confidenceUnsureBtn.classList.toggle('border-yellow-400', current === 'unsure');
+        confidenceUnsureBtn.classList.toggle('text-yellow-800', current === 'unsure');
+        confidenceUnsureBtn.classList.toggle('bg-white', current !== 'unsure');
+
+        confidenceConfidentBtn.classList.toggle('bg-green-100', current === 'confident');
+        confidenceConfidentBtn.classList.toggle('border-green-400', current === 'confident');
+        confidenceConfidentBtn.classList.toggle('text-green-800', current === 'confident');
+        confidenceConfidentBtn.classList.toggle('bg-white', current !== 'confident');
+    }
+
+    // ===== 作答狀態總覽功能 (浮層形式，開啟/關閉皆不影響目前測驗狀態) =====
+    statusOverviewBtn.addEventListener('click', () => {
+        renderStatusOverview();
+        statusOverviewModal.classList.remove('hidden');
+    });
+
+    closeStatusOverviewBtn.addEventListener('click', () => {
+        statusOverviewModal.classList.add('hidden');
+    });
+
+    // 點擊浮層外側背景亦可關閉，不影響測驗狀態
+    statusOverviewModal.addEventListener('click', (e) => {
+        if (e.target === statusOverviewModal) {
+            statusOverviewModal.classList.add('hidden');
+        }
+    });
+
+    function renderStatusOverview() {
+        statusOverviewGrid.innerHTML = '';
+        examQuestions.forEach((q, index) => {
+            const ans = userAnswers[index];
+            let answerDisplay;
+            const answered = ans !== undefined && ans !== null && !(Array.isArray(ans) && ans.length === 0);
+
+            if (q.題型 === '是非題') {
+                answerDisplay = ans === 'O' ? '是' : (ans === 'X' ? '非' : '');
+            } else if (Array.isArray(ans)) {
+                answerDisplay = ans.length > 0 ? ans.slice().sort().join('、') : '';
+            } else {
+                answerDisplay = ans ? ans.toString() : '';
+            }
+
+            const confidence = questionConfidence[index];
+            const confidenceIcon = confidence === 'unsure' ? '❓' : (confidence === 'confident' ? '✅' : '');
+            const isCurrent = index === currentQuestionIndex;
+
+            const item = document.createElement('div');
+            item.className = `p-3 rounded-lg border text-sm ${answered ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'} ${isCurrent ? 'ring-2 ring-indigo-400' : ''}`;
+            item.innerHTML = `
+                <div class="font-bold text-gray-700 flex items-center justify-between">
+                    <span>第 ${index + 1} 題</span>
+                    <span>${confidenceIcon}</span>
+                </div>
+                <div class="text-gray-600 mt-1">${answered ? `選擇：${answerDisplay}` : '未作答'}</div>
+            `;
+            statusOverviewGrid.appendChild(item);
+        });
     }
 </script>
 
