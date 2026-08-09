@@ -3,198 +3,330 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>測驗練習應用程式</title>
+    <title>測驗練習應用程式 - 支援多重佈景</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* 定義全局 CSS 變數，用於主題切換 */
+        :root {
+            /* 預設 (Light) */
+            --theme-bg: #f3f4f6;
+            --theme-card: #ffffff;
+            --theme-card-alt: #f9fafb;
+            --theme-text: #1f2937;
+            --theme-text-muted: #4b5563;
+            --theme-border: #e5e7eb;
+            --theme-input-bg: #e5e7eb;
+            
+            --theme-primary: #3b82f6;
+            --theme-primary-hover: #2563eb;
+            --theme-primary-text: #ffffff;
+            
+            --theme-secondary: #d1d5db;
+            --theme-secondary-hover: #9ca3af;
+            --theme-secondary-text: #1f2937;
+
+            /* 提示區塊顏色 */
+            --theme-info-bg: #eff6ff;
+            --theme-info-text: #1e40af;
+            --theme-info-border: #bfdbfe;
+            --theme-success-bg: #f0fdf4;
+            --theme-success-text: #166534;
+            --theme-success-border: #bbf7d0;
+            --theme-error-bg: #fef2f2;
+            --theme-error-text: #991b1b;
+            --theme-error-border: #fecaca;
+        }
+
+        /* 暗黑模式 (Dark) */
+        [data-theme="dark"] {
+            --theme-bg: #111827;
+            --theme-card: #1f2937;
+            --theme-card-alt: #374151;
+            --theme-text: #f9fafb;
+            --theme-text-muted: #9ca3af;
+            --theme-border: #4b5563;
+            --theme-input-bg: #374151;
+            
+            --theme-info-bg: #1e3a8a;
+            --theme-info-text: #bfdbfe;
+            --theme-info-border: #1e40af;
+            --theme-success-bg: #14532d;
+            --theme-success-text: #bbf7d0;
+            --theme-success-border: #166534;
+            --theme-error-bg: #7f1d1d;
+            --theme-error-text: #fecaca;
+            --theme-error-border: #991b1b;
+        }
+
+        /* 高對比模式 (High Contrast) */
+        [data-theme="hc"] {
+            --theme-bg: #000000;
+            --theme-card: #000000;
+            --theme-card-alt: #111111;
+            --theme-text: #ffff00;
+            --theme-text-muted: #ffffff;
+            --theme-border: #ffff00;
+            --theme-input-bg: #222222;
+
+            --theme-primary: #ffff00;
+            --theme-primary-hover: #cccc00;
+            --theme-primary-text: #000000;
+            --theme-secondary: #ffffff;
+            --theme-secondary-hover: #cccccc;
+            --theme-secondary-text: #000000;
+            
+            --theme-info-bg: #000000;
+            --theme-info-text: #00ffff;
+            --theme-info-border: #00ffff;
+            --theme-success-bg: #000000;
+            --theme-success-text: #00ff00;
+            --theme-success-border: #00ff00;
+            --theme-error-bg: #000000;
+            --theme-error-text: #ff0000;
+            --theme-error-border: #ff0000;
+        }
+
+        /* 護眼模式 (Eye Care) */
+        [data-theme="eye"] {
+            --theme-bg: #c7edcc;
+            --theme-card: #dcefd0;
+            --theme-card-alt: #e8f5e9;
+            --theme-text: #222222;
+            --theme-text-muted: #444444;
+            --theme-border: #a3c9a8;
+            --theme-input-bg: #e8f5e9;
+            
+            --theme-info-bg: #dcefd0;
+            --theme-info-text: #1a1a1a;
+            --theme-info-border: #a3c9a8;
+            --theme-success-bg: #dcefd0;
+            --theme-success-text: #1a1a1a;
+            --theme-success-border: #a3c9a8;
+            --theme-error-bg: #ffcccb;
+            --theme-error-text: #8b0000;
+            --theme-error-border: #ff9999;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: var(--theme-bg);
+            color: var(--theme-text);
+            transition: background-color 0.3s, color 0.3s;
         }
+        
         .container {
             max-width: 900px;
         }
         .bg-card {
-            background-color: #ffffff;
+            background-color: var(--theme-card);
         }
+        
+        /* 按鈕樣式改用變數 */
         .btn-primary {
-            @apply bg-blue-500 text-white font-bold py-2 px-4 rounded-full shadow-lg transition duration-300 ease-in-out hover:bg-blue-600;
-        }
-        .btn-secondary {
-            @apply bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-full shadow-md transition duration-300 ease-in-out hover:bg-gray-400;
-        }
-        .btn-correct {
-            background-color: #10B981 !important;
-            color: white !important;
-        }
-        .btn-wrong {
-            background-color: #EF4444 !important;
-            color: white !important;
-        }
-        .result-correct {
-            color: #10B981;
-        }
-        .result-wrong {
-            color: #EF4444;
-        }
-        .timer-red {
-            color: #EF4444;
+            background-color: var(--theme-primary);
+            color: var(--theme-primary-text);
             font-weight: bold;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.3s ease-in-out;
         }
+        .btn-primary:hover {
+            background-color: var(--theme-primary-hover);
+        }
+        
+        .btn-secondary {
+            background-color: var(--theme-secondary);
+            color: var(--theme-secondary-text);
+            font-weight: bold;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: background-color 0.3s ease-in-out;
+        }
+        .btn-secondary:hover {
+            background-color: var(--theme-secondary-hover);
+        }
+
+        /* 覆寫特定 Tailwind 類別以支援變數 (避免在 HTML 寫太長) */
+        .theme-border { border-color: var(--theme-border) !important; }
+        .theme-text-muted { color: var(--theme-text-muted) !important; }
+        .theme-bg-input { background-color: var(--theme-input-bg) !important; }
+        .theme-bg-alt { background-color: var(--theme-card-alt) !important; }
+        
         /* 讀題模式正確選項的醫目樣式 */
         .option-read-correct {
-            @apply bg-green-100 border-green-500 shadow-sm;
+            background-color: var(--theme-success-bg) !important;
+            border-color: var(--theme-success-border) !important;
         }
+
+        /* 浮動主題按鈕 */
+        .theme-fab {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            z-index: 50;
+            background-color: var(--theme-primary);
+            color: var(--theme-primary-text);
+            width: 3rem;
+            height: 3rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .theme-fab:hover { transform: scale(1.1); }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
 
-<div id="app" class="container mx-auto p-8 rounded-2xl shadow-xl bg-card my-8 relative">
-    <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">測驗練習應用程式</h1>
+<div id="app" class="container mx-auto p-8 rounded-2xl shadow-xl bg-card my-8 relative transition-colors duration-300">
+    <h1 class="text-3xl font-bold text-center mb-6" style="color: var(--theme-text)">測驗練習應用程式</h1>
 
     <!-- 設定頁面 -->
     <div id="settings-page" class="space-y-6">
         <div>
-            <label for="file-input" class="block text-gray-700 font-medium mb-2">上傳您的題庫檔案 (CSV 或 XLSX)</label>
-            <input type="file" id="file-input" multiple accept=".csv, .xlsx" class="w-full text-gray-700 bg-gray-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <label for="file-input" class="block font-medium mb-2 theme-text-muted">上傳您的題庫檔案 (CSV 或 XLSX)</label>
+            <input type="file" id="file-input" multiple accept=".csv, .xlsx" class="w-full theme-bg-input rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 theme-border border" style="color: var(--theme-text)">
         </div>
 
         <div>
-            <label class="block text-gray-700 font-medium mb-2">1. 選擇模式</label>
+            <label class="block font-medium mb-2 theme-text-muted">1. 選擇模式</label>
             <div class="flex flex-col space-y-3">
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="test-mode" value="exam" checked class="form-radio text-blue-600 w-4 h-4">
-                    <span class="ml-2 text-gray-700 font-medium">測驗模式 <span class="text-gray-500 text-sm font-normal">(全部作答完看結果)</span></span>
+                    <span class="ml-2 font-medium">測驗模式 <span class="text-sm font-normal theme-text-muted">(全部作答完看結果)</span></span>
                 </label>
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="test-mode" value="practice" class="form-radio text-blue-600 w-4 h-4">
-                    <span class="ml-2 text-gray-700 font-medium">練習模式 <span class="text-gray-500 text-sm font-normal">(每題作答後即時看對錯與詳解)</span></span>
+                    <span class="ml-2 font-medium">練習模式 <span class="text-sm font-normal theme-text-muted">(每題作答後即時看對錯與詳解)</span></span>
                 </label>
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="test-mode" value="read" class="form-radio text-purple-600 w-4 h-4">
-                    <span class="ml-2 text-gray-700 font-medium">讀題模式 <span class="text-gray-500 text-sm font-normal">(單純瀏覽題庫，直接顯示正確答案與詳解)</span></span>
+                    <span class="ml-2 font-medium">讀題模式 <span class="text-sm font-normal theme-text-muted">(單純瀏覽題庫，直接顯示正確答案與詳解)</span></span>
                 </label>
             </div>
         </div>
 
         <div>
-            <label class="block text-gray-700 font-medium mb-2">2. 選擇科目</label>
+            <label class="block font-medium mb-2 theme-text-muted">2. 選擇科目</label>
             <div class="mb-3 flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-4">
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="subject-mode" value="single" checked class="form-radio text-blue-600 w-4 h-4">
-                    <span class="ml-2 text-gray-700 font-medium">單一科目</span>
+                    <span class="ml-2 font-medium">單一科目</span>
                 </label>
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="subject-mode" value="multiple" class="form-radio text-blue-600 w-4 h-4">
-                    <span class="ml-2 text-gray-700 font-medium">多科目合併 <span class="text-gray-500 text-sm font-normal">(自訂比例)</span></span>
+                    <span class="ml-2 font-medium">多科目合併 <span class="text-sm font-normal theme-text-muted">(自訂比例)</span></span>
                 </label>
             </div>
 
             <div id="single-subject-container">
-                <select id="subject-select" class="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select id="subject-select" class="w-full theme-bg-input theme-border border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" style="color: var(--theme-text)">
                     <option value="">請先上傳檔案</option>
                 </select>
             </div>
 
-            <div id="multi-subject-container" class="hidden p-4 bg-white rounded-lg border border-gray-200 shadow-sm mt-2">
+            <div id="multi-subject-container" class="hidden p-4 rounded-lg theme-border border shadow-sm mt-2 bg-card">
                 <div class="flex justify-between items-center mb-3">
-                    <span class="font-medium text-gray-700 text-sm">勾選要合併的科目並設定比例：</span>
+                    <span class="font-medium text-sm theme-text-muted">勾選要合併的科目並設定比例：</span>
                     <button id="even-distribute-btn" class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition">平分比例</button>
                 </div>
                 <div id="multi-subject-list" class="space-y-2 max-h-48 overflow-y-auto mb-3 pr-2">
                     <!-- 動態產生選項 -->
                 </div>
-                <div class="text-right font-medium text-sm pt-2 border-t border-gray-100">
-                    目前總比例：<span id="total-ratio" class="text-red-600">0</span>%
+                <div class="text-right font-medium text-sm pt-2 theme-border border-t">
+                    目前總比例：<span id="total-ratio" class="text-red-500">0</span>%
                 </div>
             </div>
         </div>
 
         <div>
-            <label class="block text-gray-700 font-medium mb-2">3. 選擇題目類型</label>
+            <label class="block font-medium mb-2 theme-text-muted">3. 選擇題目類型</label>
             <div class="flex space-x-4">
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="question-type" value="是非題" checked class="form-radio text-blue-600 w-4 h-4">
-                    <span class="ml-2 text-gray-700">是非題</span>
+                    <span class="ml-2">是非題</span>
                 </label>
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="question-type" value="選擇題" class="form-radio text-blue-600 w-4 h-4">
-                    <span class="ml-2 text-gray-700">選擇題</span>
+                    <span class="ml-2">選擇題</span>
                 </label>
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="question-type" value="混合" class="form-radio text-blue-600 w-4 h-4">
-                    <span class="ml-2 text-gray-700">混合</span>
+                    <span class="ml-2">混合</span>
                 </label>
             </div>
 
             <!-- 進階篩選區塊 -->
-            <div id="answer-filter-section" class="mt-3 p-4 bg-blue-50 rounded-lg border border-blue-100 hidden">
-                <label class="block text-blue-800 font-bold mb-3 text-sm">進階篩選：只看特定答案的題目 (若全不勾選則代表全考)</label>
+            <div id="answer-filter-section" class="mt-3 p-4 rounded-lg theme-border border hidden" style="background-color: var(--theme-info-bg)">
+                <label class="block font-bold mb-3 text-sm" style="color: var(--theme-info-text)">進階篩選：只看特定答案的題目 (若全不勾選則代表全考)</label>
                 
-                <!-- 是非題篩選 -->
                 <div id="filter-tf-group" class="flex space-x-4 hidden">
-                    <label class="flex items-center cursor-pointer bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm hover:bg-blue-50">
+                    <label class="flex items-center cursor-pointer px-4 py-2 rounded-full theme-border border shadow-sm bg-card">
                         <input type="checkbox" id="filter-tf-o" class="form-checkbox text-blue-600 w-4 h-4 rounded">
-                        <span class="ml-2 text-sm text-gray-700 font-medium">答案為「是 (O)」</span>
+                        <span class="ml-2 text-sm font-medium">答案為「是 (O)」</span>
                     </label>
-                    <label class="flex items-center cursor-pointer bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm hover:bg-blue-50">
+                    <label class="flex items-center cursor-pointer px-4 py-2 rounded-full theme-border border shadow-sm bg-card">
                         <input type="checkbox" id="filter-tf-x" class="form-checkbox text-blue-600 w-4 h-4 rounded">
-                        <span class="ml-2 text-sm text-gray-700 font-medium">答案為「否 (X)」</span>
+                        <span class="ml-2 text-sm font-medium">答案為「否 (X)」</span>
                     </label>
                 </div>
 
-                <!-- 選擇題動態篩選 -->
-                <div id="filter-mc-group" class="hidden flex flex-wrap gap-3">
-                    <!-- 將由 JavaScript 動態填入該科目有的答案選項 -->
-                </div>
+                <div id="filter-mc-group" class="hidden flex flex-wrap gap-3"></div>
             </div>
         </div>
 
         <div>
-            <label class="block text-gray-700 font-medium mb-2">4. 選擇範圍</label>
+            <label class="block font-medium mb-2 theme-text-muted">4. 選擇範圍</label>
             <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
                 <div class="flex-1">
                     <label class="flex items-center cursor-pointer">
                         <input type="radio" name="exam-scope" value="all" checked class="form-radio text-blue-600 w-4 h-4">
-                        <span class="ml-2 text-gray-700">全題庫</span>
+                        <span class="ml-2">全題庫</span>
                     </label>
                 </div>
                 <div class="flex-1">
                     <label class="flex items-center cursor-pointer">
                         <input type="radio" name="exam-scope" value="random" class="form-radio text-blue-600 w-4 h-4">
-                        <span class="ml-2 text-gray-700">指定數量</span>
+                        <span class="ml-2">指定數量</span>
                     </label>
-                    <input type="number" id="question-count" placeholder="輸入題數" class="w-full border border-gray-300 rounded-lg p-2 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled>
+                    <input type="number" id="question-count" placeholder="輸入題數" class="w-full theme-bg-input theme-border border rounded-lg p-2 mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled style="color: var(--theme-text)">
                 </div>
                 <div class="flex-1">
                     <label class="flex items-center cursor-pointer">
                         <input type="radio" name="exam-scope" value="range" class="form-radio text-blue-600 w-4 h-4">
-                        <span class="ml-2 text-gray-700">指定範圍</span>
+                        <span class="ml-2">指定範圍</span>
                     </label>
                     <div class="flex space-x-2 mt-2">
-                        <input type="number" id="start-number" placeholder="起始題號" class="w-1/2 border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled>
-                        <input type="number" id="end-number" placeholder="結束題號" class="w-1/2 border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled>
+                        <input type="number" id="start-number" placeholder="起始題號" class="w-1/2 theme-bg-input theme-border border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled style="color: var(--theme-text)">
+                        <input type="number" id="end-number" placeholder="結束題號" class="w-1/2 theme-bg-input theme-border border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" disabled style="color: var(--theme-text)">
                     </div>
                 </div>
             </div>
         </div>
 
         <div id="setting-exam-time">
-            <label for="exam-time" class="block text-gray-700 font-medium mb-2">5. 輸入考試時間 (分鐘)</label>
-            <input type="number" id="exam-time" placeholder="無時間限制" class="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0">
+            <label for="exam-time" class="block font-medium mb-2 theme-text-muted">5. 輸入考試時間 (分鐘)</label>
+            <input type="number" id="exam-time" placeholder="無時間限制" class="w-full theme-bg-input theme-border border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" style="color: var(--theme-text)">
         </div>
 
         <div id="setting-pass-rate">
-            <label for="pass-rate" class="block text-gray-700 font-medium mb-2">6. 輸入通過率 (%)</label>
-            <input type="number" id="pass-rate" value="60" class="w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" max="100">
+            <label for="pass-rate" class="block font-medium mb-2 theme-text-muted">6. 輸入通過率 (%)</label>
+            <input type="number" id="pass-rate" value="60" class="w-full theme-bg-input theme-border border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" min="0" max="100" style="color: var(--theme-text)">
         </div>
 
         <div id="setting-direct-review">
             <label class="flex items-center cursor-pointer">
                 <input type="checkbox" id="direct-review" class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500">
-                <span class="ml-2 text-gray-700 font-medium">7. 測驗結束後直接檢討試卷</span>
+                <span class="ml-2 font-medium theme-text-muted">7. 測驗結束後直接檢討試卷</span>
             </label>
         </div>
 
@@ -203,37 +335,37 @@
         <button id="start-exam-btn" class="w-full btn-primary py-3 text-lg mt-4">開始</button>
     </div>
 
-    <!-- 作答狀態總覽 入口按鈕 (固定於畫面右上角，不跳頁，僅開啟浮層) -->
-    <button id="status-overview-btn" class="hidden absolute top-4 right-4 z-20 bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-medium px-3 py-2 rounded-full shadow hover:bg-indigo-200 transition">📋 作答總覽</button>
+    <!-- 作答狀態總覽按鈕 -->
+    <button id="status-overview-btn" class="hidden absolute top-4 right-4 z-20 btn-secondary text-xs sm:text-sm px-3 py-2">📋 作答總覽</button>
 
     <!-- 測驗/讀題頁面 -->
     <div id="exam-page" class="hidden">
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-800" id="exam-title"></h2>
-            <div id="timer" class="text-2xl font-semibold text-gray-600"></div>
+            <h2 class="text-2xl font-bold" id="exam-title"></h2>
+            <div id="timer" class="text-2xl font-semibold theme-text-muted"></div>
         </div>
         
-        <div class="bg-blue-50 text-blue-800 px-4 py-3 rounded-lg mb-4 font-medium hidden border border-blue-200" id="practice-mode-indicator">
+        <div class="px-4 py-3 rounded-lg mb-4 font-medium hidden border" id="practice-mode-indicator" style="background-color: var(--theme-info-bg); color: var(--theme-info-text); border-color: var(--theme-info-border);">
             🛠️ 練習模式：作答後請點擊下方「確認答案」查看結果。
         </div>
 
-        <div class="bg-purple-50 text-purple-800 px-4 py-3 rounded-lg mb-4 font-medium hidden border border-purple-200" id="read-mode-indicator">
+        <div class="px-4 py-3 rounded-lg mb-4 font-medium hidden border" id="read-mode-indicator" style="background-color: var(--theme-info-bg); color: var(--theme-info-text); border-color: var(--theme-info-border);">
             📖 讀題模式：直接瀏覽題庫與正確答案。
         </div>
 
         <div id="question-area" class="space-y-6">
-            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
-                <p class="text-lg font-semibold text-gray-800 mb-4" id="question-text"></p>
+            <div class="theme-bg-alt p-6 rounded-xl theme-border border shadow-sm transition-colors duration-300">
+                <p class="text-lg font-semibold mb-4" id="question-text"></p>
                 <div id="options-container" class="space-y-3"></div>
-                <div id="confidence-section" class="hidden flex items-center flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200">
-                    <span class="text-sm text-gray-600 font-medium mr-1">信心標記：</span>
-                    <button type="button" id="confidence-unsure-btn" class="confidence-btn px-3 py-1 rounded-full border border-gray-300 text-sm bg-white hover:bg-gray-100 transition">❓ 不確定</button>
-                    <button type="button" id="confidence-confident-btn" class="confidence-btn px-3 py-1 rounded-full border border-gray-300 text-sm bg-white hover:bg-gray-100 transition">✅ 有把握</button>
+                
+                <div id="confidence-section" class="hidden flex items-center flex-wrap gap-2 mt-4 pt-4 theme-border border-t">
+                    <span class="text-sm font-medium mr-1 theme-text-muted">信心標記：</span>
+                    <button type="button" id="confidence-unsure-btn" class="confidence-btn px-3 py-1 rounded-full theme-border border text-sm bg-card transition">❓ 不確定</button>
+                    <button type="button" id="confidence-confident-btn" class="confidence-btn px-3 py-1 rounded-full theme-border border text-sm bg-card transition">✅ 有把握</button>
                 </div>
             </div>
             
-            <!-- 練習模式/讀題模式 回饋區塊 -->
-            <div id="practice-feedback" class="hidden p-5 rounded-xl mt-4"></div>
+            <div id="practice-feedback" class="hidden p-5 rounded-xl mt-4 transition-colors duration-300"></div>
 
             <div class="flex justify-between mt-6">
                 <button id="prev-btn" class="btn-secondary hidden py-2 px-6">&lt; 上一題</button>
@@ -245,8 +377,8 @@
 
     <!-- 結果頁面 -->
     <div id="results-page" class="hidden text-center space-y-6 py-8">
-        <h2 class="text-4xl font-bold text-gray-800">完成</h2>
-        <div id="results-summary" class="text-2xl font-medium text-gray-700"></div>
+        <h2 class="text-4xl font-bold">完成</h2>
+        <div id="results-summary" class="text-2xl font-medium theme-text-muted"></div>
         <div id="pass-fail-message" class="text-3xl font-bold"></div>
         <div class="flex justify-center space-x-4 mt-8">
             <button id="review-exam-btn" class="btn-secondary py-3 px-6">檢討試卷</button>
@@ -256,25 +388,75 @@
 
     <!-- 檢討頁面 -->
     <div id="review-page" class="hidden">
-        <h2 class="text-3xl font-bold text-center mb-6 text-gray-800">試卷檢討</h2>
+        <h2 class="text-3xl font-bold text-center mb-6">試卷檢討</h2>
         <div id="review-questions" class="space-y-8"></div>
         <button id="back-to-results-btn" class="w-full btn-secondary mt-8 py-3">返回結果</button>
     </div>
+</div>
 
-    <!-- 作答狀態總覽 浮層 (不影響目前測驗狀態，僅供檢視) -->
-    <div id="status-overview-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 relative">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-gray-800">作答狀態總覽</h3>
-                <button id="close-status-overview-btn" class="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+<!-- 作答狀態總覽浮層 -->
+<div id="status-overview-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity">
+    <div class="bg-card rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6 relative theme-border border">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">作答狀態總覽</h3>
+            <button id="close-status-overview-btn" class="theme-text-muted hover:opacity-70 text-2xl leading-none">&times;</button>
+        </div>
+        <div id="status-overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"></div>
+    </div>
+</div>
+
+<!-- 主題設定按鈕 (FAB) -->
+<div class="theme-fab" id="open-theme-modal" title="外觀與主題設定">🎨</div>
+
+<!-- 主題設定 Modal -->
+<div id="theme-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+    <div class="bg-card rounded-2xl shadow-xl w-full max-w-md p-6 relative theme-border border transition-colors duration-300">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">外觀與主題設定</h3>
+            <button id="close-theme-modal" class="theme-text-muted hover:opacity-70 text-2xl leading-none">&times;</button>
+        </div>
+        
+        <div class="space-y-6">
+            <!-- 預設模式選擇 -->
+            <div>
+                <p class="font-medium mb-3 theme-text-muted">快速套用佈景</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <button class="theme-btn border rounded py-2 px-4 font-medium transition hover:opacity-80" data-set-theme="default" style="background-color: #f3f4f6; color: #1f2937; border-color: #e5e7eb;">預設 (明亮)</button>
+                    <button class="theme-btn border rounded py-2 px-4 font-medium transition hover:opacity-80" data-set-theme="dark" style="background-color: #111827; color: #f9fafb; border-color: #4b5563;">暗黑模式</button>
+                    <button class="theme-btn border rounded py-2 px-4 font-medium transition hover:opacity-80" data-set-theme="hc" style="background-color: #000000; color: #ffff00; border-color: #ffff00;">高對比模式</button>
+                    <button class="theme-btn border rounded py-2 px-4 font-medium transition hover:opacity-80" data-set-theme="eye" style="background-color: #c7edcc; color: #222222; border-color: #a3c9a8;">護眼模式</button>
+                </div>
             </div>
-            <div id="status-overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"></div>
+
+            <hr class="theme-border">
+
+            <!-- 自訂顏色 -->
+            <div>
+                <p class="font-medium mb-3 theme-text-muted">自訂專屬顏色</p>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label>背景顏色 (Background)</label>
+                        <input type="color" id="custom-bg" class="w-10 h-10 rounded cursor-pointer">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label>卡片顏色 (Card)</label>
+                        <input type="color" id="custom-card" class="w-10 h-10 rounded cursor-pointer">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label>文字顏色 (Text)</label>
+                        <input type="color" id="custom-text" class="w-10 h-10 rounded cursor-pointer">
+                    </div>
+                </div>
+                <div class="mt-4 flex space-x-3">
+                    <button id="apply-custom-btn" class="flex-1 btn-primary py-2 text-sm">套用自訂顏色</button>
+                    <button id="reset-theme-btn" class="flex-1 btn-secondary py-2 text-sm">清除自訂</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // 建立 ABCD 到 1234 的動態對應字典
     const ansMap = {
         'A': '1', 'B': '2', 'C': '3', 'D': '4',
         'a': '1', 'b': '2', 'c': '3', 'd': '4',
@@ -298,7 +480,6 @@
     const totalRatioEl = document.getElementById('total-ratio');
     const evenDistributeBtn = document.getElementById('even-distribute-btn');
 
-    // 設定區塊包裝元素 (用於讀題模式隱藏)
     const settingExamTimeDiv = document.getElementById('setting-exam-time');
     const settingPassRateDiv = document.getElementById('setting-pass-rate');
     const settingDirectReviewDiv = document.getElementById('setting-direct-review');
@@ -334,18 +515,100 @@
     const confidenceUnsureBtn = document.getElementById('confidence-unsure-btn');
     const confidenceConfidentBtn = document.getElementById('confidence-confident-btn');
 
+    // 主題相關元素
+    const openThemeModalBtn = document.getElementById('open-theme-modal');
+    const themeModal = document.getElementById('theme-modal');
+    const closeThemeModalBtn = document.getElementById('close-theme-modal');
+    const themeBtns = document.querySelectorAll('.theme-btn');
+    const applyCustomBtn = document.getElementById('apply-custom-btn');
+    const resetThemeBtn = document.getElementById('reset-theme-btn');
+    const customBg = document.getElementById('custom-bg');
+    const customCard = document.getElementById('custom-card');
+    const customText = document.getElementById('custom-text');
+
     let allQuestions = {};
     let examQuestions = [];
     let currentQuestionIndex = 0;
     let userAnswers = {};
-    let confirmedAnswers = {}; // 記錄練習模式下是否已確認答案
-    let questionConfidence = {}; // 記錄每題的信心標記：'unsure' | 'confident'
+    let confirmedAnswers = {};
+    let questionConfidence = {};
     let examTimer;
     let timeRemaining;
     let timerInterval;
     let isPracticeMode = false;
     let isReadMode = false;
-    let subjectMode = 'single'; // 記錄當前是單一科目或多科目模式
+    let subjectMode = 'single';
+
+    // --- 主題切換邏輯 ---
+    function setTheme(themeName) {
+        // 清除自訂樣式 (如果有)
+        document.documentElement.removeAttribute('style');
+        
+        if (themeName === 'default') {
+            document.documentElement.removeAttribute('data-theme');
+        } else {
+            document.documentElement.setAttribute('data-theme', themeName);
+        }
+        localStorage.setItem('quiz-theme', themeName);
+    }
+
+    function applyCustomTheme() {
+        const bg = customBg.value;
+        const card = customCard.value;
+        const text = customText.value;
+        
+        document.documentElement.setAttribute('data-theme', 'custom');
+        document.documentElement.style.setProperty('--theme-bg', bg);
+        document.documentElement.style.setProperty('--theme-card', card);
+        document.documentElement.style.setProperty('--theme-text', text);
+        
+        // 簡單的混色邏輯來產生邊框與次要顏色
+        document.documentElement.style.setProperty('--theme-border', text);
+        document.documentElement.style.setProperty('--theme-text-muted', text);
+        document.documentElement.style.setProperty('--theme-input-bg', bg);
+        document.documentElement.style.setProperty('--theme-card-alt', card);
+
+        localStorage.setItem('quiz-theme', 'custom');
+        localStorage.setItem('quiz-custom-colors', JSON.stringify({bg, card, text}));
+    }
+
+    // 初始化載入主題
+    const savedTheme = localStorage.getItem('quiz-theme');
+    if (savedTheme === 'custom') {
+        const colors = JSON.parse(localStorage.getItem('quiz-custom-colors'));
+        if(colors) {
+            customBg.value = colors.bg;
+            customCard.value = colors.card;
+            customText.value = colors.text;
+            applyCustomTheme();
+        }
+    } else if (savedTheme) {
+        setTheme(savedTheme);
+    }
+
+    // 主題面板事件
+    openThemeModalBtn.addEventListener('click', () => themeModal.classList.remove('hidden'));
+    closeThemeModalBtn.addEventListener('click', () => themeModal.classList.add('hidden'));
+    themeModal.addEventListener('click', (e) => {
+        if (e.target === themeModal) themeModal.classList.add('hidden');
+    });
+
+    themeBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            setTheme(e.target.dataset.setTheme);
+        });
+    });
+
+    applyCustomBtn.addEventListener('click', applyCustomTheme);
+    resetThemeBtn.addEventListener('click', () => {
+        setTheme('default');
+        customBg.value = '#f3f4f6';
+        customCard.value = '#ffffff';
+        customText.value = '#1f2937';
+        localStorage.removeItem('quiz-custom-colors');
+    });
+    // --- 結束主題邏輯 ---
+
 
     document.querySelectorAll('input[name="subject-mode"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
@@ -357,7 +620,6 @@
             } else {
                 singleSubjectContainer.classList.add('hidden');
                 multiSubjectContainer.classList.remove('hidden');
-                // 多科目模式下禁用「指定範圍」
                 const rangeRadio = document.querySelector('input[name="exam-scope"][value="range"]');
                 rangeRadio.disabled = true;
                 if (rangeRadio.checked) {
@@ -369,7 +631,6 @@
         });
     });
 
-    // 監聽模式切換，隱藏/顯示無關設定
     document.querySelectorAll('input[name="test-mode"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             const mode = e.target.value;
@@ -385,7 +646,6 @@
         });
     });
 
-    // 動態更新篩選選項
     function updateFilterOptions() {
         let selectedSubjects = [];
         if (subjectMode === 'single') {
@@ -416,7 +676,6 @@
             mcGroup.innerHTML = '';
             let allPossibleAnswers = new Set();
             
-            // 統合所有選擇科目的可用答案
             selectedSubjects.forEach(subj => {
                 if (allQuestions[subj] && allQuestions[subj]['選擇題']) {
                     allQuestions[subj]['選擇題'].forEach(q => {
@@ -428,13 +687,14 @@
             const uniqueAnswers = [...allPossibleAnswers].sort();
             
             if(uniqueAnswers.length === 0) {
-                mcGroup.innerHTML = '<span class="text-gray-500 text-sm">無可用的答案選項</span>';
+                mcGroup.innerHTML = '<span class="text-sm theme-text-muted">無可用的答案選項</span>';
                 return;
             }
 
             uniqueAnswers.forEach(ans => {
                 const label = document.createElement('label');
-                label.className = 'flex items-center cursor-pointer bg-white px-4 py-2 rounded-full border border-blue-200 shadow-sm hover:bg-blue-50 transition duration-200';
+                // 套用主題變數的 class
+                label.className = 'flex items-center cursor-pointer px-4 py-2 rounded-full theme-border border shadow-sm bg-card hover:opacity-80 transition duration-200';
                 
                 const input = document.createElement('input');
                 input.type = 'checkbox';
@@ -442,7 +702,7 @@
                 input.value = ans;
                 
                 const span = document.createElement('span');
-                span.className = 'ml-2 text-sm text-gray-700 font-medium';
+                span.className = 'ml-2 text-sm font-medium';
                 span.textContent = `答案: ${ans}`;
                 
                 label.appendChild(input);
@@ -457,7 +717,6 @@
     });
     subjectSelect.addEventListener('change', updateFilterOptions);
 
-    // 讀取檔案
     fileInput.addEventListener('change', (event) => {
         allQuestions = {};
         const files = event.target.files;
@@ -533,23 +792,22 @@
         multiSubjectList.innerHTML = ''; 
 
         subjects.forEach(subject => {
-            // 單一科目下拉選單
             const option = document.createElement('option');
             option.value = subject;
             option.textContent = subject;
             subjectSelect.appendChild(option);
 
-            // 多科目勾選清單
             const div = document.createElement('div');
-            div.className = 'flex items-center justify-between bg-gray-50 p-2 border border-gray-200 rounded hover:bg-blue-50 transition';
+            // 套用主題顏色變數
+            div.className = 'flex items-center justify-between theme-bg-alt p-2 theme-border border rounded transition';
             div.innerHTML = `
                 <label class="flex items-center cursor-pointer flex-1 overflow-hidden">
                     <input type="checkbox" class="form-checkbox text-blue-600 w-4 h-4 rounded multi-subject-checkbox" value="${subject}">
-                    <span class="ml-2 text-gray-700 truncate" title="${subject}">${subject}</span>
+                    <span class="ml-2 truncate" title="${subject}">${subject}</span>
                 </label>
                 <div class="flex items-center w-28 ml-2 hidden ratio-container">
-                    <input type="number" class="w-16 border border-gray-300 rounded p-1 text-right text-sm multi-subject-ratio focus:ring-blue-500 focus:outline-none" min="0" max="100" value="0">
-                    <span class="ml-1 text-gray-500 text-sm">%</span>
+                    <input type="number" class="w-16 theme-border border rounded p-1 text-right text-sm multi-subject-ratio focus:ring-blue-500 focus:outline-none theme-bg-input" style="color: var(--theme-text)" min="0" max="100" value="0">
+                    <span class="ml-1 text-sm theme-text-muted">%</span>
                 </div>
             `;
             multiSubjectList.appendChild(div);
@@ -580,10 +838,11 @@
         });
         total = Math.round(total * 10) / 10;
         totalRatioEl.textContent = total;
+        // 成功比例維持顯示 (紅色代表錯誤，綠色代表成功)
         if (total === 100) {
-            totalRatioEl.className = 'text-green-600 font-bold';
+            totalRatioEl.style.color = '#10B981'; // Tailwind green-500
         } else {
-            totalRatioEl.className = 'text-red-600 font-bold';
+            totalRatioEl.style.color = '#EF4444'; // Tailwind red-500
         }
     }
 
@@ -593,7 +852,7 @@
         
         const avg = 100 / checkedBoxes.length;
         let currentSum = 0;
-        const inputs = checkedBoxes.map(cb => cb.closest('.bg-gray-50').querySelector('.multi-subject-ratio'));
+        const inputs = checkedBoxes.map(cb => cb.closest('div').querySelector('.multi-subject-ratio'));
         
         inputs.forEach((input, index) => {
             if (index === inputs.length - 1) {
@@ -625,10 +884,8 @@
             pool = allQuestions[subject][type] || [];
         }
         
-        // 注入題目來源 (已包含在原始實作的 displayQuestion 中呈現)
         pool = pool.map(q => ({ ...q, _source: subject }));
 
-        // 進階篩選邏輯
         if (type === '是非題') {
             const checkO = document.getElementById('filter-tf-o').checked;
             const checkX = document.getElementById('filter-tf-x').checked;
@@ -697,7 +954,6 @@
             document.getElementById('exam-title').textContent = `${subject} - ${questionType}`;
 
         } else {
-            // 多科目合併邏輯
             const checkedSubjects = Array.from(document.querySelectorAll('.multi-subject-checkbox:checked'));
             if (checkedSubjects.length === 0) {
                 showError('請至少勾選一個科目。');
@@ -708,7 +964,7 @@
                 let totalPercent = 0;
                 let subjectRatios = [];
                 checkedSubjects.forEach(cb => {
-                    const ratio = parseFloat(cb.closest('.bg-gray-50').querySelector('.multi-subject-ratio').value) || 0;
+                    const ratio = parseFloat(cb.closest('div').querySelector('.multi-subject-ratio').value) || 0;
                     totalPercent += ratio;
                     subjectRatios.push({ subject: cb.value, ratio: ratio });
                 });
@@ -735,7 +991,6 @@
                     return;
                 }
 
-                // 最大餘數法分配題數
                 let allocations = [];
                 let currentAllocatedSum = 0;
                 
@@ -783,7 +1038,6 @@
             document.getElementById('exam-title').textContent = `綜合測驗 - ${questionType}`;
         }
 
-        // 只有非讀題模式，或者讀題模式選擇隨機數量時，才打亂題目順序
         if (!isReadMode || examScope === 'random') {
             examQuestions = shuffleArray(examQuestions);
         }
@@ -801,16 +1055,13 @@
         settingsPage.classList.add('hidden');
         examPage.classList.remove('hidden');
         
-        // 指示器與計時器顯示邏輯
         practiceModeIndicator.classList.toggle('hidden', !isPracticeMode);
         readModeIndicator.classList.toggle('hidden', !isReadMode);
-
-        // 信心標記與作答總覽功能：讀題模式不需要作答，故不顯示
         confidenceSection.classList.toggle('hidden', isReadMode);
         statusOverviewBtn.classList.toggle('hidden', isReadMode);
 
         if (isReadMode) {
-            timerEl.classList.add('hidden'); // 讀題模式不需要計時器
+            timerEl.classList.add('hidden');
         } else {
             timerEl.classList.remove('hidden');
             if (examTime > 0) {
@@ -841,8 +1092,8 @@
         const minutes = Math.floor(timeRemaining / 60);
         const seconds = timeRemaining % 60;
         timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        if (timeRemaining <= 60) { timerEl.classList.add('timer-red'); } 
-        else { timerEl.classList.remove('timer-red'); }
+        if (timeRemaining <= 60) { timerEl.style.color = '#EF4444'; timerEl.style.fontWeight = 'bold'; } 
+        else { timerEl.style.color = ''; timerEl.style.fontWeight = ''; }
         
         if (timeRemaining <= 0) {
             clearInterval(timerInterval);
@@ -857,10 +1108,10 @@
         const question = examQuestions[currentQuestionIndex];
         const questionNumber = currentQuestionIndex + 1;
         
-        // 如果是合併模式，顯示題目來源的標籤
-        const sourceTag = question._source ? `<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mb-2 mr-2 border border-blue-200">來源：${question._source}</span>` : '';
+        // 來源標籤使用主題顏色變數
+        const sourceTag = question._source ? `<span class="inline-block px-2 py-1 rounded mb-2 mr-2 border text-xs" style="background-color: var(--theme-info-bg); color: var(--theme-info-text); border-color: var(--theme-info-border);">來源：${question._source}</span>` : '';
         
-        questionTextEl.innerHTML = `${sourceTag}<br><span class="font-bold mr-2 text-gray-600">${questionNumber}/${examQuestions.length}</span> ${question.題目}`;
+        questionTextEl.innerHTML = `${sourceTag}<br><span class="font-bold mr-2 theme-text-muted">${questionNumber}/${examQuestions.length}</span> ${question.題目}`;
         optionsContainer.innerHTML = '';
         practiceFeedback.classList.add('hidden');
         
@@ -887,21 +1138,18 @@
             });
         }
 
-        // 更新信心標記按鈕的顯示狀態 (依目前題目已標記的狀態呈現)
         if (!isReadMode) {
             updateConfidenceButtonsUI();
         }
 
-        // 讀題模式專屬介面邏輯
         if (isReadMode) {
             disableOptions();
-            showReadFeedback(); // 直接顯示正確答案詳解
+            showReadFeedback();
             confirmBtn.classList.add('hidden');
             nextBtn.classList.remove('hidden');
             prevBtn.classList.toggle('hidden', currentQuestionIndex === 0);
             nextBtn.textContent = (currentQuestionIndex === examQuestions.length - 1) ? '結束讀題' : '下一題 >';
         }
-        // 練習模式邏輯
         else if (isPracticeMode) {
             if (confirmedAnswers[currentQuestionIndex]) {
                 showPracticeFeedback();
@@ -916,7 +1164,6 @@
             }
             nextBtn.textContent = (currentQuestionIndex === examQuestions.length - 1) ? '結束測驗' : '下一題 >';
         } 
-        // 一般測驗模式邏輯
         else {
             confirmBtn.classList.add('hidden');
             nextBtn.classList.remove('hidden');
@@ -927,7 +1174,8 @@
 
     function createOptionElement(value, text, dataValue, inputType) {
         const label = document.createElement('label');
-        label.className = 'flex items-center space-x-3 p-4 rounded-lg border border-gray-200 cursor-pointer hover:bg-blue-50 transition duration-200 ease-in-out bg-white';
+        // 使用主題變數
+        label.className = 'flex items-center space-x-3 p-4 rounded-lg theme-border border cursor-pointer transition duration-200 ease-in-out bg-card hover:opacity-80';
         
         const input = document.createElement('input');
         input.type = inputType;
@@ -949,7 +1197,7 @@
         });
         
         const span = document.createElement('span');
-        span.className = 'text-gray-800 text-base leading-relaxed';
+        span.className = 'text-base leading-relaxed';
         span.textContent = `${value}. ${text}`;
         
         label.appendChild(input);
@@ -957,18 +1205,19 @@
         optionsContainer.appendChild(label);
     }
     
-    // 讀題模式直接顯示反饋
     function showReadFeedback() {
         const q = examQuestions[currentQuestionIndex];
         const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
         
-        practiceFeedback.classList.remove('hidden', 'bg-green-50', 'bg-red-50', 'border-green-400', 'border-red-400', 'text-green-800', 'text-red-800');
-        practiceFeedback.classList.add('bg-blue-50', 'border', 'border-blue-400', 'text-blue-900');
+        practiceFeedback.classList.remove('hidden');
+        practiceFeedback.style.backgroundColor = 'var(--theme-info-bg)';
+        practiceFeedback.style.borderColor = 'var(--theme-info-border)';
+        practiceFeedback.style.color = 'var(--theme-info-text)';
+        practiceFeedback.style.borderWidth = '1px';
         
         let correctDisplay;
         if (q.題型 === '是非題') {
             correctDisplay = q.答案 === 'O' ? '是' : '非';
-            // 標示正確選項
             const correctInput = document.querySelector(`input[data-answer='${q.答案}']`);
             if (correctInput) {
                 correctInput.checked = true;
@@ -978,30 +1227,26 @@
             const correctOptionIndices = q.答案.toString().split('.');
             correctDisplay = correctOptionIndices.map(rawIdx => {
                 const idx = ansMap[rawIdx.trim()] || rawIdx.trim();
-                
-                // 標示正確選項
                 const correctInput = document.querySelector(`input[data-answer='${idx}']`);
                 if (correctInput) {
                     correctInput.checked = true;
                     correctInput.parentElement.classList.add('option-read-correct');
                 }
-
                 return `選項${idx}: ${q[`選項${idx}`] || '無此選項資料'}`;
             }).join('<br>');
         }
 
         practiceFeedback.innerHTML = `
             <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">💡</span> 正確答案與詳解</p>
-            <div class="mb-3 p-3 bg-white bg-opacity-60 rounded border border-blue-200">
-                <span class="font-semibold text-blue-800">正確答案：</span><br>${correctDisplay}
+            <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border theme-border">
+                <span class="font-semibold">正確答案：</span><br>${correctDisplay}
             </div>
-            <div class="mt-2 text-blue-900">
-                <span class="font-semibold text-blue-800">詳解：</span><br>${explanation}
+            <div class="mt-2">
+                <span class="font-semibold">詳解：</span><br>${explanation}
             </div>
         `;
     }
 
-    // 練習模式：確認答案按鈕
     confirmBtn.addEventListener('click', () => {
         const answer = userAnswers[currentQuestionIndex];
         if (!answer || (Array.isArray(answer) && answer.length === 0)) {
@@ -1023,7 +1268,8 @@
         const isCorrect = isAnswerCorrect(q, userAnswers[currentQuestionIndex]);
         const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
         
-        practiceFeedback.classList.remove('hidden', 'bg-green-50', 'bg-red-50', 'border-green-400', 'border-red-400', 'text-green-800', 'text-red-800', 'bg-blue-50', 'border-blue-400', 'text-blue-900');
+        practiceFeedback.classList.remove('hidden');
+        practiceFeedback.style.borderWidth = '1px';
         
         let correctDisplay;
         if (q.題型 === '是非題') {
@@ -1037,25 +1283,29 @@
         }
 
         if (isCorrect) {
-            practiceFeedback.classList.add('bg-green-50', 'border', 'border-green-400', 'text-green-900');
+            practiceFeedback.style.backgroundColor = 'var(--theme-success-bg)';
+            practiceFeedback.style.borderColor = 'var(--theme-success-border)';
+            practiceFeedback.style.color = 'var(--theme-success-text)';
             practiceFeedback.innerHTML = `
                 <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">✅</span> 答對了！</p>
-                <div class="mb-3 p-3 bg-white bg-opacity-60 rounded border border-green-200">
-                    <span class="font-semibold text-green-800">正確答案：</span><br>${correctDisplay}
+                <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border" style="border-color: var(--theme-success-border)">
+                    <span class="font-semibold">正確答案：</span><br>${correctDisplay}
                 </div>
-                <div class="mt-2 text-green-900">
-                    <span class="font-semibold text-green-800">詳解：</span><br>${explanation}
+                <div class="mt-2">
+                    <span class="font-semibold">詳解：</span><br>${explanation}
                 </div>
             `;
         } else {
-            practiceFeedback.classList.add('bg-red-50', 'border', 'border-red-400', 'text-red-900');
+            practiceFeedback.style.backgroundColor = 'var(--theme-error-bg)';
+            practiceFeedback.style.borderColor = 'var(--theme-error-border)';
+            practiceFeedback.style.color = 'var(--theme-error-text)';
             practiceFeedback.innerHTML = `
                 <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">❌</span> 答錯了！</p>
-                <div class="mb-3 p-3 bg-white bg-opacity-60 rounded border border-red-200">
-                    <span class="font-semibold text-red-800">正確答案：</span><br>${correctDisplay}
+                <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border" style="border-color: var(--theme-error-border)">
+                    <span class="font-semibold">正確答案：</span><br>${correctDisplay}
                 </div>
-                <div class="mt-2 text-red-900">
-                    <span class="font-semibold text-red-800">詳解：</span><br>${explanation}
+                <div class="mt-2">
+                    <span class="font-semibold">詳解：</span><br>${explanation}
                 </div>
             `;
         }
@@ -1066,11 +1316,10 @@
             input.disabled = true;
         });
         document.querySelectorAll('#options-container label').forEach(label => {
-            label.classList.remove('cursor-pointer', 'hover:bg-blue-50');
+            label.classList.remove('cursor-pointer', 'hover:opacity-80');
             label.classList.add('cursor-not-allowed');
-            // 保留原本背景色與我們加上的正確標記，不再一律變暗
             if (!label.classList.contains('option-read-correct')) {
-                label.classList.add('opacity-70', 'bg-gray-100');
+                label.classList.add('opacity-60');
             }
         });
     }
@@ -1095,17 +1344,15 @@
         clearInterval(timerInterval);
         examPage.classList.add('hidden');
 
-        // 讀題模式結束邏輯
         if (isReadMode) {
             resultsSummaryEl.textContent = `您已瀏覽完畢共 ${examQuestions.length} 題。`;
             passFailMessageEl.textContent = '';
-            passFailMessageEl.className = 'text-3xl font-bold'; // 清除顏色
-            reviewExamBtn.classList.add('hidden'); // 不需要檢討
+            passFailMessageEl.className = 'text-3xl font-bold'; 
+            reviewExamBtn.classList.add('hidden');
             resultsPage.classList.remove('hidden');
             return;
         }
 
-        // 測驗/練習模式結束邏輯
         let correctCount = 0;
         examQuestions.forEach((q, index) => {
             if (isAnswerCorrect(q, userAnswers[index])) {
@@ -1121,10 +1368,10 @@
 
         if (accuracy >= passRate) {
             passFailMessageEl.textContent = '恭喜您，通過測驗！';
-            passFailMessageEl.className = 'text-3xl font-bold result-correct';
+            passFailMessageEl.style.color = '#10B981'; // green-500
         } else {
             passFailMessageEl.textContent = '很遺憾，您未通過測驗。';
-            passFailMessageEl.className = 'text-3xl font-bold result-wrong';
+            passFailMessageEl.style.color = '#EF4444'; // red-500
         }
 
         reviewExamBtn.classList.remove('hidden');
@@ -1147,11 +1394,12 @@
         reviewQuestionsEl.innerHTML = '';
         examQuestions.forEach((q, index) => {
             const reviewItem = document.createElement('div');
-            reviewItem.className = 'bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4';
+            // 使用變數套用卡片風格
+            reviewItem.className = 'bg-card p-6 rounded-xl theme-border border shadow-sm space-y-4';
             
             const questionText = document.createElement('p');
-            questionText.className = 'text-lg font-semibold text-gray-800';
-            questionText.innerHTML = `<span class="font-bold mr-2 text-gray-600">${index + 1}.</span> ${q.題目}`;
+            questionText.className = 'text-lg font-semibold';
+            questionText.innerHTML = `<span class="font-bold mr-2 theme-text-muted">${index + 1}.</span> ${q.題目}`;
 
             const answerStatus = document.createElement('div');
             const userAnswer = userAnswers[index];
@@ -1159,12 +1407,11 @@
             
             answerStatus.className = 'font-bold text-lg mb-2';
             answerStatus.textContent = isCorrect ? '✅ 您的答案：正確' : `❌ 您的答案：錯誤`;
-            answerStatus.classList.add(isCorrect ? 'result-correct' : 'result-wrong');
+            answerStatus.style.color = isCorrect ? '#10B981' : '#EF4444';
             
             const flexContainer = document.createElement('div');
-            flexContainer.className = 'flex flex-col md:flex-row md:space-x-8 space-y-4 md:space-y-0 p-4 bg-gray-50 rounded-lg border border-gray-100';
+            flexContainer.className = 'flex flex-col md:flex-row md:space-x-8 space-y-4 md:space-y-0 p-4 theme-bg-alt rounded-lg theme-border border';
 
-            // User's answer display
             const userAnswerCol = document.createElement('div');
             userAnswerCol.className = 'flex-1';
             let userDisplay = '';
@@ -1175,9 +1422,8 @@
             } else {
                 userDisplay = userAnswer ? userAnswer.toString() : '未作答';
             }
-            userAnswerCol.innerHTML = `<span class="text-gray-500 font-medium">您的選擇 (內部編號)：</span><br><span class="font-bold text-gray-800 text-lg">${userDisplay}</span>`;
+            userAnswerCol.innerHTML = `<span class="font-medium theme-text-muted">您的選擇 (內部編號)：</span><br><span class="font-bold text-lg">${userDisplay}</span>`;
 
-            // Correct answer display
             const correctAnswerCol = document.createElement('div');
             correctAnswerCol.className = 'flex-1';
             let correctDisplay = '';
@@ -1190,7 +1436,7 @@
                     return `選項${idx}: ${q[`選項${idx}`] || '無此選項資料'}`;
                 }).join('<br>');
             }
-            correctAnswerCol.innerHTML = `<span class="text-gray-500 font-medium">正確答案：</span><br><span class="font-bold text-gray-800 text-lg">${correctDisplay}</span>`;
+            correctAnswerCol.innerHTML = `<span class="font-medium theme-text-muted">正確答案：</span><br><span class="font-bold text-lg">${correctDisplay}</span>`;
             
             flexContainer.appendChild(userAnswerCol);
             flexContainer.appendChild(correctAnswerCol);
@@ -1199,10 +1445,12 @@
             reviewItem.appendChild(answerStatus);
             reviewItem.appendChild(flexContainer);
             
-            // 詳解區塊
             const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
             const explanationBlock = document.createElement('div');
-            explanationBlock.className = 'mt-4 p-4 bg-blue-50 text-blue-900 rounded-lg border border-blue-100';
+            explanationBlock.className = 'mt-4 p-4 rounded-lg border';
+            explanationBlock.style.backgroundColor = 'var(--theme-info-bg)';
+            explanationBlock.style.color = 'var(--theme-info-text)';
+            explanationBlock.style.borderColor = 'var(--theme-info-border)';
             explanationBlock.innerHTML = `<span class="font-semibold">💡 詳解：</span><br>${explanation}`;
             reviewItem.appendChild(explanationBlock);
             
@@ -1240,7 +1488,6 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // ===== 信心標記功能 =====
     confidenceUnsureBtn.addEventListener('click', () => {
         toggleConfidence('unsure');
     });
@@ -1261,18 +1508,28 @@
         confidenceSection.classList.toggle('hidden', isReadMode);
         const current = questionConfidence[currentQuestionIndex];
 
-        confidenceUnsureBtn.classList.toggle('bg-yellow-100', current === 'unsure');
-        confidenceUnsureBtn.classList.toggle('border-yellow-400', current === 'unsure');
-        confidenceUnsureBtn.classList.toggle('text-yellow-800', current === 'unsure');
-        confidenceUnsureBtn.classList.toggle('bg-white', current !== 'unsure');
+        // 使用行內樣式覆蓋，以適應不同主題
+        if (current === 'unsure') {
+            confidenceUnsureBtn.style.backgroundColor = 'var(--theme-error-bg)';
+            confidenceUnsureBtn.style.borderColor = 'var(--theme-error-border)';
+            confidenceUnsureBtn.style.color = 'var(--theme-error-text)';
+        } else {
+            confidenceUnsureBtn.style.backgroundColor = 'var(--theme-card)';
+            confidenceUnsureBtn.style.borderColor = 'var(--theme-border)';
+            confidenceUnsureBtn.style.color = 'var(--theme-text)';
+        }
 
-        confidenceConfidentBtn.classList.toggle('bg-green-100', current === 'confident');
-        confidenceConfidentBtn.classList.toggle('border-green-400', current === 'confident');
-        confidenceConfidentBtn.classList.toggle('text-green-800', current === 'confident');
-        confidenceConfidentBtn.classList.toggle('bg-white', current !== 'confident');
+        if (current === 'confident') {
+            confidenceConfidentBtn.style.backgroundColor = 'var(--theme-success-bg)';
+            confidenceConfidentBtn.style.borderColor = 'var(--theme-success-border)';
+            confidenceConfidentBtn.style.color = 'var(--theme-success-text)';
+        } else {
+            confidenceConfidentBtn.style.backgroundColor = 'var(--theme-card)';
+            confidenceConfidentBtn.style.borderColor = 'var(--theme-border)';
+            confidenceConfidentBtn.style.color = 'var(--theme-text)';
+        }
     }
 
-    // ===== 作答狀態總覽功能 (浮層形式，開啟/關閉皆不影響目前測驗狀態) =====
     statusOverviewBtn.addEventListener('click', () => {
         renderStatusOverview();
         statusOverviewModal.classList.remove('hidden');
@@ -1282,7 +1539,6 @@
         statusOverviewModal.classList.add('hidden');
     });
 
-    // 點擊浮層外側背景亦可關閉，不影響測驗狀態
     statusOverviewModal.addEventListener('click', (e) => {
         if (e.target === statusOverviewModal) {
             statusOverviewModal.classList.add('hidden');
@@ -1309,13 +1565,25 @@
             const isCurrent = index === currentQuestionIndex;
 
             const item = document.createElement('div');
-            item.className = `p-3 rounded-lg border text-sm ${answered ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'} ${isCurrent ? 'ring-2 ring-indigo-400' : ''}`;
+            item.className = `p-3 rounded-lg border text-sm transition-colors ${isCurrent ? 'ring-2 ring-blue-400' : ''}`;
+            
+            // 依據是否作答動態給予主題背景
+            if (answered) {
+                item.style.backgroundColor = 'var(--theme-info-bg)';
+                item.style.borderColor = 'var(--theme-info-border)';
+                item.style.color = 'var(--theme-info-text)';
+            } else {
+                item.style.backgroundColor = 'var(--theme-card-alt)';
+                item.style.borderColor = 'var(--theme-border)';
+                item.style.color = 'var(--theme-text)';
+            }
+
             item.innerHTML = `
-                <div class="font-bold text-gray-700 flex items-center justify-between">
+                <div class="font-bold flex items-center justify-between">
                     <span>第 ${index + 1} 題</span>
                     <span>${confidenceIcon}</span>
                 </div>
-                <div class="text-gray-600 mt-1">${answered ? `選擇：${answerDisplay}` : '未作答'}</div>
+                <div class="mt-1 opacity-80">${answered ? `選擇：${answerDisplay}` : '未作答'}</div>
             `;
             statusOverviewGrid.appendChild(item);
         });
