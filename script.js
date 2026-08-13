@@ -89,6 +89,60 @@ let isPracticeMode = false;
 let isReadMode = false;
 let subjectMode = 'single';
 let lastWrongQuestions = [];
+let currentFontScale = 100;
+
+function getExplanation(question) {
+    return question.解析 || question.詳解 || '此題無提供詳解。';
+}
+
+function formatCorrectAnswer(question, { markCorrectInputs = false } = {}) {
+    if (question.題型 === '是非題') {
+        const display = question.答案 === 'O' ? '是' : '非';
+        if (markCorrectInputs) {
+            const correctInput = document.querySelector(`input[data-answer='${question.答案}']`);
+            if (correctInput) {
+                correctInput.checked = true;
+                correctInput.parentElement.classList.add('option-read-correct');
+            }
+        }
+        return display;
+    }
+
+    const correctOptionIndices = question.答案.toString().split('.');
+    return correctOptionIndices.map(rawIdx => {
+        const idx = ansMap[rawIdx.trim()] || rawIdx.trim();
+        if (markCorrectInputs) {
+            const correctInput = document.querySelector(`input[data-answer='${idx}']`);
+            if (correctInput) {
+                correctInput.checked = true;
+                correctInput.parentElement.classList.add('option-read-correct');
+            }
+        }
+        return `選項${idx}: ${question[`選項${idx}`] || '無此選項資料'}`;
+    }).join('<br>');
+}
+
+function formatUserAnswer(question, userAnswer) {
+    if (question.題型 === '是非題') {
+        return userAnswer === 'O' ? '是' : (userAnswer === 'X' ? '非' : '');
+    }
+    if (Array.isArray(userAnswer)) {
+        return userAnswer.length > 0 ? userAnswer.slice().sort().join('、') : '';
+    }
+    return userAnswer ? userAnswer.toString() : '';
+}
+
+function buildFeedbackHtml({ icon, title, correctDisplay, explanation, borderStyleAttr }) {
+    return `
+        <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">${icon}</span> ${title}</p>
+        <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border ${borderStyleAttr.class}" ${borderStyleAttr.style}>
+            <span class="font-semibold">正確答案：</span><br>${correctDisplay}
+        </div>
+        <div class="mt-2">
+            <span class="font-semibold">詳解：</span><br>${explanation}
+        </div>
+    `;
+}
 
 function safeStorage(action, key, value) {
     try {
@@ -145,8 +199,6 @@ function applyCustomTheme() {
     safeStorage('set', 'quiz-custom-colors', JSON.stringify({ bg, card, text }));
     applyFontScale(currentFontScale);
 }
-
-let currentFontScale = 100;
 
 function applyFontScale(percent) {
     currentFontScale = percent;
@@ -283,7 +335,7 @@ function updateFilterOptions() {
 
         const uniqueAnswers = [...allPossibleAnswers].sort();
 
-        if(uniqueAnswers.length === 0) {
+        if (uniqueAnswers.length === 0) {
             mcGroup.innerHTML = '<span class="text-sm theme-text-muted">無可用的答案選項</span>';
             return;
         }
@@ -332,7 +384,7 @@ fileInput.addEventListener('change', (event) => {
 
         if (fileName.endsWith('.xlsx')) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
 
@@ -351,7 +403,7 @@ fileInput.addEventListener('change', (event) => {
                 filesProcessed++;
                 if (filesProcessed === files.length) { renderSubjects(subjects); }
             };
-            reader.onerror = function() {
+            reader.onerror = function () {
                 errorMessage.textContent = `檔案解析錯誤: ${file.name}`;
                 errorMessage.classList.remove('hidden');
                 filesProcessed++;
@@ -361,7 +413,7 @@ fileInput.addEventListener('change', (event) => {
         } else if (fileName.endsWith('.csv')) {
             Papa.parse(file, {
                 header: true,
-                complete: function(results) {
+                complete: function (results) {
                     results.data.forEach(q => {
                         if (q.題型 && q.答案 && q.題目) {
                             const qType = q.題型.includes('是非') ? '是非題' : '選擇題';
@@ -373,7 +425,7 @@ fileInput.addEventListener('change', (event) => {
                     filesProcessed++;
                     if (filesProcessed === files.length) { renderSubjects(subjects); }
                 },
-                error: function() {
+                error: function () {
                     errorMessage.textContent = `檔案解析錯誤: ${file.name}`;
                     errorMessage.classList.remove('hidden');
                     filesProcessed++;
@@ -413,7 +465,7 @@ function renderSubjects(subjects) {
 
         checkbox.addEventListener('change', () => {
             ratioContainer.classList.toggle('hidden', !checkbox.checked);
-            if(!checkbox.checked) ratioInput.value = 0;
+            if (!checkbox.checked) ratioInput.value = 0;
             calculateTotalRatio();
             updateFilterOptions();
         });
@@ -427,7 +479,7 @@ function renderSubjects(subjects) {
 function calculateTotalRatio() {
     let total = 0;
     document.querySelectorAll('.multi-subject-ratio').forEach(input => {
-        if(!input.closest('div').classList.contains('hidden')) {
+        if (!input.closest('div').classList.contains('hidden')) {
             total += parseFloat(input.value) || 0;
         }
     });
@@ -442,7 +494,7 @@ function calculateTotalRatio() {
 
 evenDistributeBtn.addEventListener('click', () => {
     const checkedBoxes = Array.from(document.querySelectorAll('.multi-subject-checkbox:checked'));
-    if(checkedBoxes.length === 0) return;
+    if (checkedBoxes.length === 0) return;
 
     const avg = 100 / checkedBoxes.length;
     let currentSum = 0;
@@ -808,40 +860,19 @@ function applyFeedbackStyle(el, type) {
 
 function showReadFeedback() {
     const q = examQuestions[currentQuestionIndex];
-    const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
+    const explanation = getExplanation(q);
 
     applyFeedbackStyle(practiceFeedback, 'info');
 
-    let correctDisplay;
-    if (q.題型 === '是非題') {
-        correctDisplay = q.答案 === 'O' ? '是' : '非';
-        const correctInput = document.querySelector(`input[data-answer='${q.答案}']`);
-        if (correctInput) {
-            correctInput.checked = true;
-            correctInput.parentElement.classList.add('option-read-correct');
-        }
-    } else {
-        const correctOptionIndices = q.答案.toString().split('.');
-        correctDisplay = correctOptionIndices.map(rawIdx => {
-            const idx = ansMap[rawIdx.trim()] || rawIdx.trim();
-            const correctInput = document.querySelector(`input[data-answer='${idx}']`);
-            if (correctInput) {
-                correctInput.checked = true;
-                correctInput.parentElement.classList.add('option-read-correct');
-            }
-            return `選項${idx}: ${q[`選項${idx}`] || '無此選項資料'}`;
-        }).join('<br>');
-    }
+    const correctDisplay = formatCorrectAnswer(q, { markCorrectInputs: true });
 
-    practiceFeedback.innerHTML = `
-        <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">💡</span> 正確答案與詳解</p>
-        <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border theme-border">
-            <span class="font-semibold">正確答案：</span><br>${correctDisplay}
-        </div>
-        <div class="mt-2">
-            <span class="font-semibold">詳解：</span><br>${explanation}
-        </div>
-    `;
+    practiceFeedback.innerHTML = buildFeedbackHtml({
+        icon: '💡',
+        title: '正確答案與詳解',
+        correctDisplay,
+        explanation,
+        borderStyleAttr: { class: 'theme-border', style: '' }
+    });
 }
 
 confirmBtn.addEventListener('click', () => {
@@ -863,41 +894,27 @@ confirmBtn.addEventListener('click', () => {
 function showPracticeFeedback() {
     const q = examQuestions[currentQuestionIndex];
     const isCorrect = isAnswerCorrect(q, userAnswers[currentQuestionIndex]);
-    const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
-
-    let correctDisplay;
-    if (q.題型 === '是非題') {
-        correctDisplay = q.答案 === 'O' ? '是' : '非';
-    } else {
-        const correctOptionIndices = q.答案.toString().split('.');
-        correctDisplay = correctOptionIndices.map(rawIdx => {
-            const idx = ansMap[rawIdx.trim()] || rawIdx.trim();
-            return `選項${idx}: ${q[`選項${idx}`] || '無此選項資料'}`;
-        }).join('<br>');
-    }
+    const explanation = getExplanation(q);
+    const correctDisplay = formatCorrectAnswer(q);
 
     if (isCorrect) {
         applyFeedbackStyle(practiceFeedback, 'success');
-        practiceFeedback.innerHTML = `
-            <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">✅</span> 答對了！</p>
-            <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border" style="border-color: var(--theme-success-border)">
-                <span class="font-semibold">正確答案：</span><br>${correctDisplay}
-            </div>
-            <div class="mt-2">
-                <span class="font-semibold">詳解：</span><br>${explanation}
-            </div>
-        `;
+        practiceFeedback.innerHTML = buildFeedbackHtml({
+            icon: '✅',
+            title: '答對了！',
+            correctDisplay,
+            explanation,
+            borderStyleAttr: { class: '', style: `style="border-color: var(--theme-success-border)"` }
+        });
     } else {
         applyFeedbackStyle(practiceFeedback, 'error');
-        practiceFeedback.innerHTML = `
-            <p class="font-bold text-xl mb-3 flex items-center"><span class="text-2xl mr-2">❌</span> 答錯了！</p>
-            <div class="mb-3 p-3 bg-card bg-opacity-80 rounded border" style="border-color: var(--theme-error-border)">
-                <span class="font-semibold">正確答案：</span><br>${correctDisplay}
-            </div>
-            <div class="mt-2">
-                <span class="font-semibold">詳解：</span><br>${explanation}
-            </div>
-        `;
+        practiceFeedback.innerHTML = buildFeedbackHtml({
+            icon: '❌',
+            title: '答錯了！',
+            correctDisplay,
+            explanation,
+            borderStyleAttr: { class: '', style: `style="border-color: var(--theme-error-border)"` }
+        });
     }
 }
 
@@ -1011,28 +1028,12 @@ function displayReviewQuestions() {
 
         const userAnswerCol = document.createElement('div');
         userAnswerCol.className = 'flex-1';
-        let userDisplay = '';
-        if (q.題型 === '是非題') {
-            userDisplay = userAnswer === 'O' ? '是' : (userAnswer === 'X' ? '非' : '未作答');
-        } else if (Array.isArray(userAnswer)) {
-            userDisplay = userAnswer.length > 0 ? userAnswer.slice().sort().join('、') : '未作答';
-        } else {
-            userDisplay = userAnswer ? userAnswer.toString() : '未作答';
-        }
+        const userDisplay = formatUserAnswer(q, userAnswer) || '未作答';
         userAnswerCol.innerHTML = `<span class="font-medium theme-text-muted">您的選擇 (內部編號)：</span><br><span class="font-bold text-lg">${userDisplay}</span>`;
 
         const correctAnswerCol = document.createElement('div');
         correctAnswerCol.className = 'flex-1';
-        let correctDisplay = '';
-        if (q.題型 === '是非題') {
-            correctDisplay = q.答案 === 'O' ? '是' : '非';
-        } else {
-            const correctOptionIndices = q.答案.toString().split('.');
-            correctDisplay = correctOptionIndices.map(rawIdx => {
-                const idx = ansMap[rawIdx.trim()] || rawIdx.trim();
-                return `選項${idx}: ${q[`選項${idx}`] || '無此選項資料'}`;
-            }).join('<br>');
-        }
+        const correctDisplay = formatCorrectAnswer(q);
         correctAnswerCol.innerHTML = `<span class="font-medium theme-text-muted">正確答案：</span><br><span class="font-bold text-lg">${correctDisplay}</span>`;
 
         flexContainer.appendChild(userAnswerCol);
@@ -1042,7 +1043,7 @@ function displayReviewQuestions() {
         reviewItem.appendChild(answerStatus);
         reviewItem.appendChild(flexContainer);
 
-        const explanation = q.解析 || q.詳解 || '此題無提供詳解。';
+        const explanation = getExplanation(q);
         const explanationBlock = document.createElement('div');
         explanationBlock.className = 'mt-4 p-4 rounded-lg border';
         explanationBlock.style.backgroundColor = 'var(--theme-info-bg)';
@@ -1079,7 +1080,6 @@ restartBtn.addEventListener('click', () => {
     settingsPage.classList.remove('hidden');
 });
 
-/* ===== 錯題重考功能 ===== */
 retryWrongBtn.addEventListener('click', () => {
     if (lastWrongQuestions.length === 0) return;
 
@@ -1174,16 +1174,8 @@ function renderStatusOverview() {
     statusOverviewGrid.innerHTML = '';
     examQuestions.forEach((q, index) => {
         const ans = userAnswers[index];
-        let answerDisplay;
         const answered = ans !== undefined && ans !== null && !(Array.isArray(ans) && ans.length === 0);
-
-        if (q.題型 === '是非題') {
-            answerDisplay = ans === 'O' ? '是' : (ans === 'X' ? '非' : '');
-        } else if (Array.isArray(ans)) {
-            answerDisplay = ans.length > 0 ? ans.slice().sort().join('、') : '';
-        } else {
-            answerDisplay = ans ? ans.toString() : '';
-        }
+        const answerDisplay = formatUserAnswer(q, ans);
 
         const confidence = questionConfidence[index];
         const confidenceIcon = confidence === 'unsure' ? '❓' : (confidence === 'confident' ? '✅' : '');
