@@ -21,6 +21,7 @@
     --theme-error-bg: #fef2f2;
     --theme-error-text: #991b1b;
     --theme-error-border: #fecaca;
+    --base-font-scale: 1;
 }
 [data-theme="dark"] {
     --theme-bg: #111827;
@@ -81,6 +82,9 @@
     --theme-error-bg: #ffcccb;
     --theme-error-text: #8b0000;
     --theme-error-border: #ff9999;
+}
+html {
+    font-size: calc(16px * var(--base-font-scale, 1));
 }
 body {
     font-family: 'Inter', sans-serif;

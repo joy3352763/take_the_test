@@ -4,6 +4,13 @@ const ansMap = {
     '1': '1', '2': '2', '3': '3', '4': '4'
 };
 
+const THEME_PRESETS = {
+    default: { bg: '#f3f4f6', card: '#ffffff', text: '#1f2937' },
+    dark: { bg: '#111827', card: '#1f2937', text: '#f9fafb' },
+    hc: { bg: '#000000', card: '#000000', text: '#ffff00' },
+    eye: { bg: '#c7edcc', card: '#dcefd0', text: '#222222' }
+};
+
 const fileInput = document.getElementById('file-input');
 const subjectSelect = document.getElementById('subject-select');
 const questionCountInput = document.getElementById('question-count');
@@ -66,6 +73,8 @@ const resetThemeBtn = document.getElementById('reset-theme-btn');
 const customBg = document.getElementById('custom-bg');
 const customCard = document.getElementById('custom-card');
 const customText = document.getElementById('custom-text');
+const fontSizeSlider = document.getElementById('font-size-slider');
+const fontSizeValueEl = document.getElementById('font-size-value');
 
 let allQuestions = {};
 let examQuestions = [];
@@ -92,6 +101,15 @@ function safeStorage(action, key, value) {
     }
 }
 
+function syncCustomColorInputs(themeName) {
+    const preset = THEME_PRESETS[themeName];
+    if (preset) {
+        customBg.value = preset.bg;
+        customCard.value = preset.card;
+        customText.value = preset.text;
+    }
+}
+
 function setTheme(themeName) {
     document.documentElement.removeAttribute('style');
     if (themeName === 'default') {
@@ -100,6 +118,7 @@ function setTheme(themeName) {
         document.documentElement.setAttribute('data-theme', themeName);
     }
     safeStorage('set', 'quiz-theme', themeName);
+    applyFontScale(currentFontScale);
 }
 
 function applyCustomTheme() {
@@ -124,7 +143,24 @@ function applyCustomTheme() {
 
     safeStorage('set', 'quiz-theme', 'custom');
     safeStorage('set', 'quiz-custom-colors', JSON.stringify({ bg, card, text }));
+    applyFontScale(currentFontScale);
 }
+
+let currentFontScale = 100;
+
+function applyFontScale(percent) {
+    currentFontScale = percent;
+    document.documentElement.style.setProperty('--base-font-scale', percent / 100);
+    fontSizeSlider.value = percent;
+    fontSizeValueEl.textContent = percent;
+    safeStorage('set', 'quiz-font-scale', percent);
+}
+
+fontSizeSlider.addEventListener('input', (e) => {
+    applyFontScale(parseInt(e.target.value, 10));
+});
+
+syncCustomColorInputs('default');
 
 const savedTheme = safeStorage('get', 'quiz-theme');
 if (savedTheme === 'custom') {
@@ -140,10 +176,15 @@ if (savedTheme === 'custom') {
     } catch (e) {
         console.warn('自訂主題顏色解析失敗，改用預設主題：', e);
         setTheme('default');
+        syncCustomColorInputs('default');
     }
 } else if (savedTheme) {
     setTheme(savedTheme);
+    syncCustomColorInputs(savedTheme);
 }
+
+const savedFontScale = safeStorage('get', 'quiz-font-scale');
+applyFontScale(savedFontScale ? parseInt(savedFontScale, 10) : 100);
 
 openThemeModalBtn.addEventListener('click', () => themeModal.classList.remove('hidden'));
 closeThemeModalBtn.addEventListener('click', () => themeModal.classList.add('hidden'));
@@ -153,16 +194,16 @@ themeModal.addEventListener('click', (e) => {
 
 themeBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
-        setTheme(e.target.dataset.setTheme);
+        const themeName = e.target.dataset.setTheme;
+        setTheme(themeName);
+        syncCustomColorInputs(themeName);
     });
 });
 
 applyCustomBtn.addEventListener('click', applyCustomTheme);
 resetThemeBtn.addEventListener('click', () => {
     setTheme('default');
-    customBg.value = '#f3f4f6';
-    customCard.value = '#ffffff';
-    customText.value = '#1f2937';
+    syncCustomColorInputs('default');
     safeStorage('remove', 'quiz-custom-colors');
 });
 
@@ -879,6 +920,7 @@ nextBtn.addEventListener('click', () => {
     } else {
         currentQuestionIndex++;
         displayQuestion();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 });
 
@@ -886,6 +928,7 @@ prevBtn.addEventListener('click', () => {
     if (currentQuestionIndex > 0) {
         currentQuestionIndex--;
         displayQuestion();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 });
 
