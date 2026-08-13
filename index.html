@@ -30,7 +30,7 @@
                 </label>
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="test-mode" value="practice" class="form-radio text-blue-600 w-4 h-4">
-                    <span class="ml-2 font-medium">練習模式 <span class="text-sm font-normal theme-text-muted">(每題作答後即時看對錯與詳解)</span></span>
+                    <span class="ml-2 font-medium">練習模式 <span class="text-sm font-normal theme-text-muted">(每題作答後即時看对錯與詳解)</span></span>
                 </label>
                 <label class="flex items-center cursor-pointer">
                     <input type="radio" name="test-mode" value="read" class="form-radio text-purple-600 w-4 h-4">
@@ -154,8 +154,6 @@
         <button id="start-exam-btn" class="w-full btn-primary py-3 text-lg mt-4">開始</button>
     </div>
 
-    <button id="status-overview-btn" class="hidden absolute top-4 right-4 z-20 btn-secondary text-xs sm:text-sm px-3 py-2">📋 作答總覽</button>
-
     <div id="exam-page" class="hidden">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold" id="exam-title"></h2>
@@ -174,6 +172,11 @@
             <div class="theme-bg-alt p-6 rounded-xl theme-border border shadow-sm transition-colors duration-300">
                 <p class="text-lg font-semibold mb-4" id="question-text"></p>
                 <div id="options-container" class="space-y-3"></div>
+
+                <div id="translation-panel" class="hidden">
+                    <p class="font-semibold text-sm theme-text-muted mb-2">🌐 翻譯結果</p>
+                    <div id="translation-content" class="text-sm space-y-1"></div>
+                </div>
 
                 <div id="confidence-section" class="hidden flex items-center flex-wrap gap-2 mt-4 pt-4 theme-border border-t">
                     <span class="text-sm font-medium mr-1 theme-text-muted">信心標記：</span>
@@ -219,8 +222,6 @@
         <div id="status-overview-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"></div>
     </div>
 </div>
-
-<div class="theme-fab" id="open-theme-modal" title="外觀與主題設定">🎨</div>
 
 <div id="theme-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
     <div class="bg-card rounded-2xl shadow-xl w-full max-w-md p-6 relative theme-border border transition-colors duration-300">
@@ -277,6 +278,78 @@
             </div>
         </div>
     </div>
+</div>
+
+<div id="read-settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+    <div class="bg-card rounded-2xl shadow-xl w-full max-w-md p-6 relative theme-border border transition-colors duration-300">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">🔊 朗讀設定</h3>
+            <button id="close-read-settings-modal" class="theme-text-muted hover:opacity-70 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="space-y-5">
+            <div>
+                <label class="block font-medium mb-2 theme-text-muted">語音選擇</label>
+                <select id="voice-select" class="w-full theme-bg-input theme-border border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" style="color: var(--theme-text)"></select>
+                <p class="text-xs theme-text-muted mt-1">含「Google」字樣的語音會優先列於清單頂端。</p>
+            </div>
+            <div>
+                <label class="block font-medium mb-2 theme-text-muted">語速 (Rate)：<span id="rate-value">1</span></label>
+                <div class="settings-slider-row">
+                    <input type="range" id="rate-slider" min="0.1" max="10" step="0.1" value="1">
+                </div>
+            </div>
+            <div>
+                <label class="block font-medium mb-2 theme-text-muted">音調 (Pitch)：<span id="pitch-value">1</span></label>
+                <div class="settings-slider-row">
+                    <input type="range" id="pitch-slider" min="0" max="2" step="0.1" value="1">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="translate-settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+    <div class="bg-card rounded-2xl shadow-xl w-full max-w-md p-6 relative theme-border border transition-colors duration-300">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">🌐 翻譯設定</h3>
+            <button id="close-translate-settings-modal" class="theme-text-muted hover:opacity-70 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="space-y-5">
+            <div>
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" id="auto-detect-lang" checked class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500">
+                    <span class="ml-2 font-medium theme-text-muted">自動偵測語言</span>
+                </label>
+            </div>
+            <div>
+                <label class="block font-medium mb-2 theme-text-muted">翻譯成</label>
+                <select id="target-lang-select" class="w-full theme-bg-input theme-border border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" style="color: var(--theme-text)">
+                    <option value="zh-TW">中文(繁體)</option>
+                    <option value="zh-CN">中文(簡體)</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="vi">Tiếng Việt</option>
+                    <option value="th">ภาษาไทย</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="fab-container">
+    <div id="fab-menu" class="fab-menu hidden">
+        <button id="fab-translate-settings-btn" class="fab-item fab-sub">⚙️ 翻譯設定</button>
+        <button id="fab-translate-btn" class="fab-item">🌐 翻譯題目</button>
+        <button id="fab-read-settings-btn" class="fab-item fab-sub">⚙️ 朗讀設定</button>
+        <button id="fab-read-btn" class="fab-item">🔊 朗讀題目</button>
+        <button id="fab-overview-btn" class="fab-item">📋 作答總覽</button>
+        <button id="fab-theme-btn" class="fab-item">🎨 外觀主題</button>
+    </div>
+    <button id="fab-main-btn" class="fab-main" title="更多功能">🛠️</button>
 </div>
 
 <script src="script.js"></script>
