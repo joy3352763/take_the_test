@@ -227,14 +227,16 @@ function applyCustomTheme() {
 function applyFontScale(percent) {
     currentFontScale = percent;
     document.documentElement.style.setProperty('--base-font-scale', percent / 100);
-    fontSizeSlider.value = percent;
-    fontSizeValueEl.textContent = percent;
+    if (fontSizeSlider) fontSizeSlider.value = percent;
+    if (fontSizeValueEl) fontSizeValueEl.textContent = percent;
     safeStorage('set', 'quiz-font-scale', percent);
 }
 
-fontSizeSlider.addEventListener('input', (e) => {
-    applyFontScale(parseInt(e.target.value, 10));
-});
+if (fontSizeSlider) {
+    fontSizeSlider.addEventListener('input', (e) => {
+        applyFontScale(parseInt(e.target.value, 10));
+    });
+}
 
 syncCustomColorInputs('default');
 
@@ -270,59 +272,80 @@ themeBtns.forEach(btn => {
     });
 });
 
-applyCustomBtn.addEventListener('click', applyCustomTheme);
-resetThemeBtn.addEventListener('click', () => {
-    setTheme('default');
-    syncCustomColorInputs('default');
-    safeStorage('remove', 'quiz-custom-colors');
-});
+if (applyCustomBtn) applyCustomBtn.addEventListener('click', applyCustomTheme);
+if (resetThemeBtn) {
+    resetThemeBtn.addEventListener('click', () => {
+        setTheme('default');
+        syncCustomColorInputs('default');
+        safeStorage('remove', 'quiz-custom-colors');
+    });
+}
 
-function openModal(modalEl) { modalEl.classList.remove('hidden'); }
-function closeModal(modalEl) { modalEl.classList.add('hidden'); }
+function openModal(modalEl) { if (modalEl) modalEl.classList.remove('hidden'); }
+function closeModal(modalEl) { if (modalEl) modalEl.classList.add('hidden'); }
 function bindModalDismiss(modalEl, closeBtn) {
+    if (!modalEl || !closeBtn) return;
     closeBtn.addEventListener('click', () => closeModal(modalEl));
     modalEl.addEventListener('click', (e) => {
         if (e.target === modalEl) closeModal(modalEl);
     });
 }
 
-bindModalDismiss(themeModal, closeThemeModalBtn);
-bindModalDismiss(statusOverviewModal, closeStatusOverviewBtn);
-bindModalDismiss(readSettingsModal, closeReadSettingsModal);
-bindModalDismiss(translateSettingsModal, closeTranslateSettingsModal);
+try {
+    bindModalDismiss(themeModal, closeThemeModalBtn);
+    bindModalDismiss(statusOverviewModal, closeStatusOverviewBtn);
+    bindModalDismiss(readSettingsModal, closeReadSettingsModal);
+    bindModalDismiss(translateSettingsModal, closeTranslateSettingsModal);
 
-fabMainBtn.addEventListener('click', () => {
-    fabMenu.classList.toggle('hidden');
-});
+    if (fabMainBtn && fabMenu) {
+        fabMainBtn.addEventListener('click', () => {
+            fabMenu.classList.toggle('hidden');
+        });
+    }
 
-fabThemeBtn.addEventListener('click', () => {
-    openModal(themeModal);
-    fabMenu.classList.add('hidden');
-});
+    if (fabThemeBtn) {
+        fabThemeBtn.addEventListener('click', () => {
+            openModal(themeModal);
+            if (fabMenu) fabMenu.classList.add('hidden');
+        });
+    }
 
-fabOverviewBtn.addEventListener('click', () => {
-    renderStatusOverview();
-    openModal(statusOverviewModal);
-    fabMenu.classList.add('hidden');
-});
+    if (fabOverviewBtn) {
+        fabOverviewBtn.addEventListener('click', () => {
+            renderStatusOverview();
+            openModal(statusOverviewModal);
+            if (fabMenu) fabMenu.classList.add('hidden');
+        });
+    }
 
-fabReadSettingsBtn.addEventListener('click', () => {
-    openModal(readSettingsModal);
-    fabMenu.classList.add('hidden');
-});
+    if (fabReadSettingsBtn) {
+        fabReadSettingsBtn.addEventListener('click', () => {
+            openModal(readSettingsModal);
+            if (fabMenu) fabMenu.classList.add('hidden');
+        });
+    }
 
-fabTranslateSettingsBtn.addEventListener('click', () => {
-    openModal(translateSettingsModal);
-    fabMenu.classList.add('hidden');
-});
+    if (fabTranslateSettingsBtn) {
+        fabTranslateSettingsBtn.addEventListener('click', () => {
+            openModal(translateSettingsModal);
+            if (fabMenu) fabMenu.classList.add('hidden');
+        });
+    }
 
-fabReadBtn.addEventListener('click', () => {
-    toggleSpeakCurrentQuestion();
-});
+    if (fabReadBtn) {
+        fabReadBtn.addEventListener('click', () => {
+            toggleSpeakCurrentQuestion();
+        });
+    }
 
-fabTranslateBtn.addEventListener('click', () => {
-    toggleTranslateCurrentQuestion();
-});
+    if (fabTranslateBtn) {
+        fabTranslateBtn.addEventListener('click', () => {
+            toggleTranslateCurrentQuestion();
+        });
+    }
+} catch (e) {
+    console.error('浮動選單/主題/朗讀/翻譯功能初始化失敗，但不影響題庫上傳與測驗功能：', e);
+}
 
 document.querySelectorAll('input[name="subject-mode"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
@@ -815,8 +838,8 @@ function updateTimer() {
 function displayQuestion() {
     if (examQuestions.length === 0) return;
 
-    stopSpeaking();
-    hideTranslationPanel();
+    try { stopSpeaking(); } catch (e) { console.error(e); }
+    try { hideTranslationPanel(); } catch (e) { console.error(e); }
 
     const question = examQuestions[currentQuestionIndex];
     const questionNumber = currentQuestionIndex + 1;
@@ -1018,7 +1041,7 @@ prevBtn.addEventListener('click', () => {
 
 function endExam() {
     clearInterval(timerInterval);
-    stopSpeaking();
+    try { stopSpeaking(); } catch (e) { console.error(e); }
     examPage.classList.add('hidden');
 
     if (isReadMode) {
@@ -1254,67 +1277,81 @@ let speechRate = 1;
 let speechPitch = 1;
 
 function refreshVoiceList() {
-    if (!('speechSynthesis' in window)) return;
-    availableVoices = window.speechSynthesis.getVoices();
-    if (availableVoices.length === 0) return;
+    try {
+        if (!('speechSynthesis' in window) || !voiceSelect) return;
+        availableVoices = window.speechSynthesis.getVoices();
+        if (availableVoices.length === 0) return;
 
-    const googleVoices = availableVoices.filter(v => v.name.includes('Google'));
-    const otherVoices = availableVoices.filter(v => !v.name.includes('Google'));
-    const sortedVoices = [...googleVoices, ...otherVoices];
+        const googleVoices = availableVoices.filter(v => v.name.includes('Google'));
+        const otherVoices = availableVoices.filter(v => !v.name.includes('Google'));
+        const sortedVoices = [...googleVoices, ...otherVoices];
 
-    voiceSelect.innerHTML = '';
-    sortedVoices.forEach(voice => {
-        const option = document.createElement('option');
-        option.value = voice.name;
-        option.textContent = `${voice.name.includes('Google') ? '⭐ ' : ''}${voice.name} (${voice.lang})`;
-        voiceSelect.appendChild(option);
-    });
+        voiceSelect.innerHTML = '';
+        sortedVoices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.name;
+            option.textContent = `${voice.name.includes('Google') ? '⭐ ' : ''}${voice.name} (${voice.lang})`;
+            voiceSelect.appendChild(option);
+        });
 
-    const savedVoiceName = safeStorage('get', 'quiz-voice-name');
-    let defaultVoice =
-        (savedVoiceName && sortedVoices.find(v => v.name === savedVoiceName)) ||
-        sortedVoices.find(v => v.name.includes('Google 國語') && v.name.includes('臺灣')) ||
-        sortedVoices.find(v => v.name === 'Google 國語（臺灣）') ||
-        sortedVoices.find(v => v.name.includes('Google') && (v.lang === 'zh-TW' || v.name.includes('臺灣'))) ||
-        googleVoices[0] ||
-        sortedVoices[0];
+        const savedVoiceName = safeStorage('get', 'quiz-voice-name');
+        let defaultVoice =
+            (savedVoiceName && sortedVoices.find(v => v.name === savedVoiceName)) ||
+            sortedVoices.find(v => v.name.includes('Google 國語') && v.name.includes('臺灣')) ||
+            sortedVoices.find(v => v.name === 'Google 國語（臺灣）') ||
+            sortedVoices.find(v => v.name.includes('Google') && (v.lang === 'zh-TW' || v.name.includes('臺灣'))) ||
+            googleVoices[0] ||
+            sortedVoices[0];
 
-    if (defaultVoice) {
-        voiceSelect.value = defaultVoice.name;
-        selectedVoice = defaultVoice;
+        if (defaultVoice) {
+            voiceSelect.value = defaultVoice.name;
+            selectedVoice = defaultVoice;
+        }
+    } catch (e) {
+        console.error('語音清單初始化失敗：', e);
     }
 }
 
-if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = refreshVoiceList;
-    refreshVoiceList();
-}
+try {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = refreshVoiceList;
+        refreshVoiceList();
+    }
 
-voiceSelect.addEventListener('change', () => {
-    selectedVoice = availableVoices.find(v => v.name === voiceSelect.value) || null;
-    safeStorage('set', 'quiz-voice-name', voiceSelect.value);
-});
+    if (voiceSelect) {
+        voiceSelect.addEventListener('change', () => {
+            selectedVoice = availableVoices.find(v => v.name === voiceSelect.value) || null;
+            safeStorage('set', 'quiz-voice-name', voiceSelect.value);
+        });
+    }
+} catch (e) {
+    console.error('語音功能綁定失敗：', e);
+}
 
 function applyRate(val) {
     speechRate = val;
-    rateSlider.value = val;
-    rateValueEl.textContent = val;
+    if (rateSlider) rateSlider.value = val;
+    if (rateValueEl) rateValueEl.textContent = val;
     safeStorage('set', 'quiz-speech-rate', val);
 }
 function applyPitch(val) {
     speechPitch = val;
-    pitchSlider.value = val;
-    pitchValueEl.textContent = val;
+    if (pitchSlider) pitchSlider.value = val;
+    if (pitchValueEl) pitchValueEl.textContent = val;
     safeStorage('set', 'quiz-speech-pitch', val);
 }
 
-rateSlider.addEventListener('input', (e) => applyRate(parseFloat(e.target.value)));
-pitchSlider.addEventListener('input', (e) => applyPitch(parseFloat(e.target.value)));
+try {
+    if (rateSlider) rateSlider.addEventListener('input', (e) => applyRate(parseFloat(e.target.value)));
+    if (pitchSlider) pitchSlider.addEventListener('input', (e) => applyPitch(parseFloat(e.target.value)));
 
-const savedRate = safeStorage('get', 'quiz-speech-rate');
-const savedPitch = safeStorage('get', 'quiz-speech-pitch');
-applyRate(savedRate ? parseFloat(savedRate) : 1);
-applyPitch(savedPitch ? parseFloat(savedPitch) : 1);
+    const savedRate = safeStorage('get', 'quiz-speech-rate');
+    const savedPitch = safeStorage('get', 'quiz-speech-pitch');
+    applyRate(savedRate ? parseFloat(savedRate) : 1);
+    applyPitch(savedPitch ? parseFloat(savedPitch) : 1);
+} catch (e) {
+    console.error('語速/音調設定初始化失敗：', e);
+}
 
 function buildSpeechText() {
     if (examQuestions.length === 0) return '';
@@ -1337,6 +1374,7 @@ function buildSpeechText() {
 }
 
 function setReadButtonState(active) {
+    if (!fabReadBtn) return;
     fabReadBtn.classList.toggle('fab-active', active);
     fabReadBtn.textContent = active ? '⏹ 停止朗讀' : '🔊 朗讀題目';
 }
@@ -1396,13 +1434,14 @@ async function translateText(text, sourceLang, targetLang) {
 }
 
 function setTranslateButtonState(active) {
+    if (!fabTranslateBtn) return;
     fabTranslateBtn.classList.toggle('fab-active', active);
 }
 
 function hideTranslationPanel() {
     isTranslationVisible = false;
-    translationPanel.classList.add('hidden');
-    translationContent.innerHTML = '';
+    if (translationPanel) translationPanel.classList.add('hidden');
+    if (translationContent) translationContent.innerHTML = '';
     setTranslateButtonState(false);
 }
 
@@ -1412,10 +1451,11 @@ async function toggleTranslateCurrentQuestion() {
         return;
     }
     if (examQuestions.length === 0) return;
+    if (!translationPanel || !translationContent) return;
 
     const q = examQuestions[currentQuestionIndex];
-    const sourceLang = autoDetectLangCheckbox.checked ? 'auto' : 'zh-TW';
-    const targetLang = targetLangSelect.value || 'zh-TW';
+    const sourceLang = autoDetectLangCheckbox && autoDetectLangCheckbox.checked ? 'auto' : 'zh-TW';
+    const targetLang = (targetLangSelect && targetLangSelect.value) || 'zh-TW';
 
     translationPanel.classList.remove('hidden');
     translationContent.innerHTML = '<p class="theme-text-muted">翻譯中...</p>';
