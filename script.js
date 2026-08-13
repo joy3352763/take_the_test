@@ -56,7 +56,6 @@ const restartBtn = document.getElementById('restart-btn');
 const retryWrongBtn = document.getElementById('retry-wrong-btn');
 const backToResultsBtn = document.getElementById('back-to-results-btn');
 
-const statusOverviewBtn = document.getElementById('status-overview-btn');
 const statusOverviewModal = document.getElementById('status-overview-modal');
 const closeStatusOverviewBtn = document.getElementById('close-status-overview-btn');
 const statusOverviewGrid = document.getElementById('status-overview-grid');
@@ -64,7 +63,6 @@ const confidenceSection = document.getElementById('confidence-section');
 const confidenceUnsureBtn = document.getElementById('confidence-unsure-btn');
 const confidenceConfidentBtn = document.getElementById('confidence-confident-btn');
 
-const openThemeModalBtn = document.getElementById('open-theme-modal');
 const themeModal = document.getElementById('theme-modal');
 const closeThemeModalBtn = document.getElementById('close-theme-modal');
 const themeBtns = document.querySelectorAll('.theme-btn');
@@ -75,6 +73,30 @@ const customCard = document.getElementById('custom-card');
 const customText = document.getElementById('custom-text');
 const fontSizeSlider = document.getElementById('font-size-slider');
 const fontSizeValueEl = document.getElementById('font-size-value');
+
+const fabMainBtn = document.getElementById('fab-main-btn');
+const fabMenu = document.getElementById('fab-menu');
+const fabThemeBtn = document.getElementById('fab-theme-btn');
+const fabOverviewBtn = document.getElementById('fab-overview-btn');
+const fabReadBtn = document.getElementById('fab-read-btn');
+const fabReadSettingsBtn = document.getElementById('fab-read-settings-btn');
+const fabTranslateBtn = document.getElementById('fab-translate-btn');
+const fabTranslateSettingsBtn = document.getElementById('fab-translate-settings-btn');
+
+const readSettingsModal = document.getElementById('read-settings-modal');
+const closeReadSettingsModal = document.getElementById('close-read-settings-modal');
+const voiceSelect = document.getElementById('voice-select');
+const rateSlider = document.getElementById('rate-slider');
+const rateValueEl = document.getElementById('rate-value');
+const pitchSlider = document.getElementById('pitch-slider');
+const pitchValueEl = document.getElementById('pitch-value');
+
+const translateSettingsModal = document.getElementById('translate-settings-modal');
+const closeTranslateSettingsModal = document.getElementById('close-translate-settings-modal');
+const autoDetectLangCheckbox = document.getElementById('auto-detect-lang');
+const targetLangSelect = document.getElementById('target-lang-select');
+const translationPanel = document.getElementById('translation-panel');
+const translationContent = document.getElementById('translation-content');
 
 let allQuestions = {};
 let examQuestions = [];
@@ -90,6 +112,8 @@ let isReadMode = false;
 let subjectMode = 'single';
 let lastWrongQuestions = [];
 let currentFontScale = 100;
+let isSpeaking = false;
+let isTranslationVisible = false;
 
 function getExplanation(question) {
     return question.解析 || question.詳解 || '此題無提供詳解。';
@@ -238,12 +262,6 @@ if (savedTheme === 'custom') {
 const savedFontScale = safeStorage('get', 'quiz-font-scale');
 applyFontScale(savedFontScale ? parseInt(savedFontScale, 10) : 100);
 
-openThemeModalBtn.addEventListener('click', () => themeModal.classList.remove('hidden'));
-closeThemeModalBtn.addEventListener('click', () => themeModal.classList.add('hidden'));
-themeModal.addEventListener('click', (e) => {
-    if (e.target === themeModal) themeModal.classList.add('hidden');
-});
-
 themeBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
         const themeName = e.target.dataset.setTheme;
@@ -257,6 +275,53 @@ resetThemeBtn.addEventListener('click', () => {
     setTheme('default');
     syncCustomColorInputs('default');
     safeStorage('remove', 'quiz-custom-colors');
+});
+
+function openModal(modalEl) { modalEl.classList.remove('hidden'); }
+function closeModal(modalEl) { modalEl.classList.add('hidden'); }
+function bindModalDismiss(modalEl, closeBtn) {
+    closeBtn.addEventListener('click', () => closeModal(modalEl));
+    modalEl.addEventListener('click', (e) => {
+        if (e.target === modalEl) closeModal(modalEl);
+    });
+}
+
+bindModalDismiss(themeModal, closeThemeModalBtn);
+bindModalDismiss(statusOverviewModal, closeStatusOverviewBtn);
+bindModalDismiss(readSettingsModal, closeReadSettingsModal);
+bindModalDismiss(translateSettingsModal, closeTranslateSettingsModal);
+
+fabMainBtn.addEventListener('click', () => {
+    fabMenu.classList.toggle('hidden');
+});
+
+fabThemeBtn.addEventListener('click', () => {
+    openModal(themeModal);
+    fabMenu.classList.add('hidden');
+});
+
+fabOverviewBtn.addEventListener('click', () => {
+    renderStatusOverview();
+    openModal(statusOverviewModal);
+    fabMenu.classList.add('hidden');
+});
+
+fabReadSettingsBtn.addEventListener('click', () => {
+    openModal(readSettingsModal);
+    fabMenu.classList.add('hidden');
+});
+
+fabTranslateSettingsBtn.addEventListener('click', () => {
+    openModal(translateSettingsModal);
+    fabMenu.classList.add('hidden');
+});
+
+fabReadBtn.addEventListener('click', () => {
+    toggleSpeakCurrentQuestion();
+});
+
+fabTranslateBtn.addEventListener('click', () => {
+    toggleTranslateCurrentQuestion();
 });
 
 document.querySelectorAll('input[name="subject-mode"]').forEach(radio => {
@@ -704,7 +769,6 @@ startExamBtn.addEventListener('click', () => {
     practiceModeIndicator.classList.toggle('hidden', !isPracticeMode);
     readModeIndicator.classList.toggle('hidden', !isReadMode);
     confidenceSection.classList.toggle('hidden', isReadMode);
-    statusOverviewBtn.classList.toggle('hidden', isReadMode);
 
     if (isReadMode) {
         timerEl.classList.add('hidden');
@@ -750,6 +814,9 @@ function updateTimer() {
 
 function displayQuestion() {
     if (examQuestions.length === 0) return;
+
+    stopSpeaking();
+    hideTranslationPanel();
 
     const question = examQuestions[currentQuestionIndex];
     const questionNumber = currentQuestionIndex + 1;
@@ -951,6 +1018,7 @@ prevBtn.addEventListener('click', () => {
 
 function endExam() {
     clearInterval(timerInterval);
+    stopSpeaking();
     examPage.classList.add('hidden');
 
     if (isReadMode) {
@@ -1101,7 +1169,6 @@ retryWrongBtn.addEventListener('click', () => {
     practiceModeIndicator.classList.toggle('hidden', !isPracticeMode);
     readModeIndicator.classList.add('hidden');
     confidenceSection.classList.remove('hidden');
-    statusOverviewBtn.classList.remove('hidden');
 
     clearInterval(timerInterval);
     const examTime = parseInt(examTimeInput.value, 10);
@@ -1155,21 +1222,6 @@ function setConfidenceBtnState(btn, isActive, activeType) {
     btn.classList.add(isActive ? `confidence-btn-active-${activeType}` : 'confidence-btn-inactive');
 }
 
-statusOverviewBtn.addEventListener('click', () => {
-    renderStatusOverview();
-    statusOverviewModal.classList.remove('hidden');
-});
-
-closeStatusOverviewBtn.addEventListener('click', () => {
-    statusOverviewModal.classList.add('hidden');
-});
-
-statusOverviewModal.addEventListener('click', (e) => {
-    if (e.target === statusOverviewModal) {
-        statusOverviewModal.classList.add('hidden');
-    }
-});
-
 function renderStatusOverview() {
     statusOverviewGrid.innerHTML = '';
     examQuestions.forEach((q, index) => {
@@ -1194,4 +1246,206 @@ function renderStatusOverview() {
         `;
         statusOverviewGrid.appendChild(item);
     });
+}
+
+let availableVoices = [];
+let selectedVoice = null;
+let speechRate = 1;
+let speechPitch = 1;
+
+function refreshVoiceList() {
+    if (!('speechSynthesis' in window)) return;
+    availableVoices = window.speechSynthesis.getVoices();
+    if (availableVoices.length === 0) return;
+
+    const googleVoices = availableVoices.filter(v => v.name.includes('Google'));
+    const otherVoices = availableVoices.filter(v => !v.name.includes('Google'));
+    const sortedVoices = [...googleVoices, ...otherVoices];
+
+    voiceSelect.innerHTML = '';
+    sortedVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.name;
+        option.textContent = `${voice.name.includes('Google') ? '⭐ ' : ''}${voice.name} (${voice.lang})`;
+        voiceSelect.appendChild(option);
+    });
+
+    const savedVoiceName = safeStorage('get', 'quiz-voice-name');
+    let defaultVoice =
+        (savedVoiceName && sortedVoices.find(v => v.name === savedVoiceName)) ||
+        sortedVoices.find(v => v.name.includes('Google 國語') && v.name.includes('臺灣')) ||
+        sortedVoices.find(v => v.name === 'Google 國語（臺灣）') ||
+        sortedVoices.find(v => v.name.includes('Google') && (v.lang === 'zh-TW' || v.name.includes('臺灣'))) ||
+        googleVoices[0] ||
+        sortedVoices[0];
+
+    if (defaultVoice) {
+        voiceSelect.value = defaultVoice.name;
+        selectedVoice = defaultVoice;
+    }
+}
+
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = refreshVoiceList;
+    refreshVoiceList();
+}
+
+voiceSelect.addEventListener('change', () => {
+    selectedVoice = availableVoices.find(v => v.name === voiceSelect.value) || null;
+    safeStorage('set', 'quiz-voice-name', voiceSelect.value);
+});
+
+function applyRate(val) {
+    speechRate = val;
+    rateSlider.value = val;
+    rateValueEl.textContent = val;
+    safeStorage('set', 'quiz-speech-rate', val);
+}
+function applyPitch(val) {
+    speechPitch = val;
+    pitchSlider.value = val;
+    pitchValueEl.textContent = val;
+    safeStorage('set', 'quiz-speech-pitch', val);
+}
+
+rateSlider.addEventListener('input', (e) => applyRate(parseFloat(e.target.value)));
+pitchSlider.addEventListener('input', (e) => applyPitch(parseFloat(e.target.value)));
+
+const savedRate = safeStorage('get', 'quiz-speech-rate');
+const savedPitch = safeStorage('get', 'quiz-speech-pitch');
+applyRate(savedRate ? parseFloat(savedRate) : 1);
+applyPitch(savedPitch ? parseFloat(savedPitch) : 1);
+
+function buildSpeechText() {
+    if (examQuestions.length === 0) return '';
+    const q = examQuestions[currentQuestionIndex];
+    let text = (q.題目 || '').replace(/<[^>]*>/g, ' ');
+
+    if (q.題型 === '是非題') {
+        text += '。選項：是，非。';
+    } else {
+        const parts = [];
+        for (let i = 1; i <= 4; i++) {
+            const key = `選項${i}`;
+            if (q[key]) parts.push(`選項${i}，${q[key]}`);
+        }
+        if (parts.length > 0) {
+            text += '。' + parts.join('。');
+        }
+    }
+    return text;
+}
+
+function setReadButtonState(active) {
+    fabReadBtn.classList.toggle('fab-active', active);
+    fabReadBtn.textContent = active ? '⏹ 停止朗讀' : '🔊 朗讀題目';
+}
+
+function toggleSpeakCurrentQuestion() {
+    if (!('speechSynthesis' in window)) {
+        showError('您的瀏覽器不支援語音朗讀功能。');
+        return;
+    }
+    if (isSpeaking) {
+        stopSpeaking();
+        return;
+    }
+
+    const text = buildSpeechText();
+    if (!text) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
+    } else {
+        utterance.lang = 'zh-TW';
+    }
+    utterance.rate = speechRate;
+    utterance.pitch = speechPitch;
+
+    utterance.onend = () => {
+        isSpeaking = false;
+        setReadButtonState(false);
+    };
+    utterance.onerror = () => {
+        isSpeaking = false;
+        setReadButtonState(false);
+    };
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    isSpeaking = true;
+    setReadButtonState(true);
+}
+
+function stopSpeaking() {
+    if ('speechSynthesis' in window && isSpeaking) {
+        window.speechSynthesis.cancel();
+    }
+    isSpeaking = false;
+    setReadButtonState(false);
+}
+
+async function translateText(text, sourceLang, targetLang) {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sourceLang)}&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('翻譯服務回應錯誤');
+    const data = await res.json();
+    return (data[0] || []).map(chunk => chunk[0]).join('');
+}
+
+function setTranslateButtonState(active) {
+    fabTranslateBtn.classList.toggle('fab-active', active);
+}
+
+function hideTranslationPanel() {
+    isTranslationVisible = false;
+    translationPanel.classList.add('hidden');
+    translationContent.innerHTML = '';
+    setTranslateButtonState(false);
+}
+
+async function toggleTranslateCurrentQuestion() {
+    if (isTranslationVisible) {
+        hideTranslationPanel();
+        return;
+    }
+    if (examQuestions.length === 0) return;
+
+    const q = examQuestions[currentQuestionIndex];
+    const sourceLang = autoDetectLangCheckbox.checked ? 'auto' : 'zh-TW';
+    const targetLang = targetLangSelect.value || 'zh-TW';
+
+    translationPanel.classList.remove('hidden');
+    translationContent.innerHTML = '<p class="theme-text-muted">翻譯中...</p>';
+    isTranslationVisible = true;
+    setTranslateButtonState(true);
+
+    try {
+        const questionPlain = (q.題目 || '').replace(/<[^>]*>/g, ' ');
+        const optionTexts = [];
+        if (q.題型 === '是非題') {
+            optionTexts.push({ label: '是', text: '是' });
+            optionTexts.push({ label: '非', text: '非' });
+        } else {
+            for (let i = 1; i <= 4; i++) {
+                const key = `選項${i}`;
+                if (q[key]) optionTexts.push({ label: `選項${i}`, text: q[key] });
+            }
+        }
+
+        const [translatedQuestion, ...translatedOptions] = await Promise.all([
+            translateText(questionPlain, sourceLang, targetLang),
+            ...optionTexts.map(o => translateText(o.text, sourceLang, targetLang))
+        ]);
+
+        let html = `<p><span class="font-semibold">題目：</span>${translatedQuestion}</p>`;
+        optionTexts.forEach((o, idx) => {
+            html += `<p><span class="font-semibold">${o.label}：</span>${translatedOptions[idx]}</p>`;
+        });
+        translationContent.innerHTML = html;
+    } catch (err) {
+        translationContent.innerHTML = `<p class="text-red-500">翻譯失敗，請稍後再試。(${err.message})</p>`;
+    }
 }
