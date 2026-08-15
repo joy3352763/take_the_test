@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>題庫匯入工具 - take_the_test</title>
-<!-- 第三方函式庫改用CDN載入，不再依賴本地vendor/檔案 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -15,8 +14,30 @@
 <body>
   <h1>題庫匯入工具</h1>
 
-  <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.csv,.txt,.rtf" multiple>
-  <button id="convertBtn">開始轉換</button>
+  <div id="step1">
+    <h2>Step 1：選擇檔案並分析格式</h2>
+    <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.csv,.txt,.rtf" multiple>
+    <button id="analyzeBtn">分析格式</button>
+    <p style="color:#666">PDF/TXT/RTF會進入Step 2讓你確認切題方式；CSV/Excel/DOCX會直接處理。</p>
+  </div>
+
+  <div id="step2" style="display:none">
+    <h2>Step 2：確認切題分界與答案標記</h2>
+
+    <h3>切題分界（每題的起始標記）</h3>
+    <div id="delimiterOptions"></div>
+    <label>自訂regex（留空則用上面選項）:
+      <input type="text" id="customDelimiter" style="width:300px" placeholder="例如: QUESTION\s+\d+\.">
+    </label>
+
+    <h3>答案標記格式（可多選，同一份題庫可能混用）</h3>
+    <div id="answerLabelOptions"></div>
+
+    <button id="previewBtn">預覽切題結果</button>
+    <div id="previewArea"></div>
+
+    <button id="confirmConvertBtn" disabled>確認並轉換全部題目</button>
+  </div>
 
   <h2>轉換結果</h2>
   <div id="summary"></div>
