@@ -1,4 +1,4 @@
-// parsers.js v3: interactive format confirmation + line reconstruction + cross-page frequency watermark detection + tightened answer capture
+// parsers.js v4: fix answer-label/letter line-split regression + accurate candidate counts
 
 const Parsers = {};
 
@@ -13,6 +13,7 @@ Parsers.detectDelimiterCandidates = function (text) {
   return candidates.map((c) => ({ ...c, count: (text.match(c.regex) || []).length }));
 };
 
+// 不再要求anchor在行首，只要文件裡有出現就算命中，避免因行斷點誤判導致計數失真
 Parsers.detectAnswerLabelCandidates = function (text) {
   const candidates = [
     { key: "correct_answer", label: "Correct Answer:", pattern: "Correct Answer" },
@@ -20,7 +21,7 @@ Parsers.detectAnswerLabelCandidates = function (text) {
     { key: "zh_answer", label: "Answer (zh):", pattern: "\u7b54\u6848" },
   ];
   return candidates.map((c) => {
-    const re = new RegExp("^" + c.pattern + "\\s*[:\uff1a]", "gim");
+    const re = new RegExp(c.pattern + "\\s*[:\uff1a]", "gi");
     return { ...c, count: (text.match(re) || []).length };
   });
 };
@@ -43,6 +44,27 @@ Parsers.splitByDelimiter = function (text, delimiterRegex) {
   return blocks;
 };
 
+// 在bodyLines裡找答案標記，若同一行沒有接到字母，就續接下一行找（容忍行斷點誤判分开的情況）
+function findAnswerLetters(bodyLines, escapedLabels) {
+  const labelRegex = new RegExp("^(?:" + escapedLabels.join("|") + ")\\s*[:\uff1a]\\s*(.*)$", "i");
+  const letterRegex = /^[A-J](?:\s*,?\s*[A-J])*/i;
+
+  for (let i = 0; i < bodyLines.length; i++) {
+    const m = bodyLines[i].match(labelRegex);
+    if (!m) continue;
+
+    let rest = (m[1] || "").trim();
+    let letterMatch = rest.match(letterRegex);
+    if (!letterMatch && i + 1 < bodyLines.length) {
+      // 同一行沒有字母，可能被行斷點誤判分開，往下一行找
+      letterMatch = bodyLines[i + 1].trim().match(letterRegex);
+    }
+    if (letterMatch) return letterMatch[0];
+    return "";
+  }
+  return "";
+}
+
 Parsers.parseBlockToQuestion = function (blockText, filename, idx, answerLabels) {
   const lines = blockText
     .split(/\r?\n/)
@@ -62,19 +84,8 @@ Parsers.parseBlockToQuestion = function (blockText, filename, idx, answerLabels)
 
   const labels = answerLabels && answerLabels.length ? answerLabels : ["Correct Answer", "Answer", "\u7b54\u6848"];
   const escaped = labels.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const answerRegex = new RegExp(
-    "^(?:" + escaped.join("|") + ")\\s*[:\uff1a]\\s*([A-J](?:\\s*,?\\s*[A-J])*)",
-    "i"
-  );
 
-  let answerLetters = "";
-  for (const l of bodyLines) {
-    const m = l.match(answerRegex);
-    if (m) {
-      answerLetters = m[1];
-      break;
-    }
-  }
+  const answerLetters = findAnswerLetters(bodyLines, escaped);
   const answers = answerLetters
     .replace(/[^A-J]/gi, "")
     .toUpperCase()
@@ -176,7 +187,8 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
     items.forEach((item) => {
       if (isNoiseSpan(item.str)) return;
       const y = item.transform ? item.transform[5] : null;
-      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) {
+      // 添大容差閃值（從2拉到4）避免同行內字體微小基線差被誤判為換行
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 4) {
         pageText += "\n";
       } else if (pageText && !/\s$/.test(pageText)) {
         pageText += " ";
