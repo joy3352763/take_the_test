@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>題庫匯入工具 - take_the_test</title>
+<script src="vendor/pdf.js"></script>
+<script src="vendor/mammoth.browser.js"></script>
+<script src="vendor/exceljs.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+</head>
+<body>
+  <h1>題庫匯入工具</h1>
+
+  <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.csv,.txt,.rtf" multiple>
+  <button id="convertBtn">開始轉換</button>
+
+  <h2>轉換結果</h2>
+  <div id="summary"></div>
+
+  <h3>需人工覆核清單</h3>
+  <ul id="reviewList"></ul>
+
+  <button id="downloadJsonBtn" disabled>下載 questions.json</button>
+  <button id="downloadZipBtn" disabled>下載 assets.zip（大圖片）</button>
+
+  <script src="parsers.js"></script>
+  <script src="core.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
