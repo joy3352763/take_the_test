@@ -1,16 +1,14 @@
-// parsers.js — v2: 支援互動式格式確認 + PDF整頁截圖 + hex指紋過濾
-// 中介格式: { id, question, question_image, type, options, option_images, answers, source, needs_review }
+// parsers.js v3: interactive format confirmation + line reconstruction + cross-page frequency watermark detection + tightened answer capture
 
 const Parsers = {};
 
-// ================= 通用：切題候選偵測 =================
 Parsers.detectDelimiterCandidates = function (text) {
   const candidates = [
-    { key: "q_no_dot", label: "QUESTION 数字（不含句點）", regex: /QUESTION\s+\d+(?!\s*\.)/gi },
-    { key: "q_with_dot", label: "QUESTION 数字.", regex: /QUESTION\s+\d+\s*\./gi },
-    { key: "q_any", label: "QUESTION 数字（不論後面符號）", regex: /QUESTION\s+\d+/gi },
-    { key: "num_dot_line", label: "行首「數字.」", regex: /^\s*\d+\.\s+/gm },
-    { key: "blank_line", label: "空行分隔（原始邏輯，通常不準）", regex: /\n\s*\n/g },
+    { key: "q_no_dot", label: "QUESTION number (no dot)", regex: /QUESTION\s+\d+(?!\s*\.)/gi },
+    { key: "q_with_dot", label: "QUESTION number.", regex: /QUESTION\s+\d+\s*\./gi },
+    { key: "q_any", label: "QUESTION number (any)", regex: /QUESTION\s+\d+/gi },
+    { key: "num_dot_line", label: "Line-start number.", regex: /^\s*\d+\.\s+/gm },
+    { key: "blank_line", label: "Blank line (legacy, usually inaccurate)", regex: /\n\s*\n/g },
   ];
   return candidates.map((c) => ({ ...c, count: (text.match(c.regex) || []).length }));
 };
@@ -19,16 +17,14 @@ Parsers.detectAnswerLabelCandidates = function (text) {
   const candidates = [
     { key: "correct_answer", label: "Correct Answer:", pattern: "Correct Answer" },
     { key: "answer", label: "Answer:", pattern: "Answer" },
-    { key: "zh_answer", label: "答案:", pattern: "答案" },
+    { key: "zh_answer", label: "Answer (zh):", pattern: "\u7b54\u6848" },
   ];
   return candidates.map((c) => {
-    const re = new RegExp(`^${c.pattern}\\s*[:\uff1a]`, "gim");
+    const re = new RegExp("^" + c.pattern + "\\s*[:\uff1a]", "gim");
     return { ...c, count: (text.match(re) || []).length };
   });
 };
 
-// ================= 通用：依選定分界 regex切題 =================
-// delimiterRegex 必須含 global flag
 Parsers.splitByDelimiter = function (text, delimiterRegex) {
   const re = new RegExp(
     delimiterRegex.source,
@@ -47,8 +43,6 @@ Parsers.splitByDelimiter = function (text, delimiterRegex) {
   return blocks;
 };
 
-// ================= 通用：單一區塊 -> 題目物件 =================
-// answerLabels: 使用者勾選的答案標記文字陣列，例如 ["Correct Answer", "Answer"]
 Parsers.parseBlockToQuestion = function (blockText, filename, idx, answerLabels) {
   const lines = blockText
     .split(/\r?\n/)
@@ -66,9 +60,12 @@ Parsers.parseBlockToQuestion = function (blockText, filename, idx, answerLabels)
   const optionLines = bodyLines.filter((l) => /^[A-J]\s*[.\u3001)]/.test(l));
   const options = optionLines.map((l) => l.replace(/^[A-J]\s*[.\u3001)]\s*/, "").trim());
 
-  const labels = answerLabels && answerLabels.length ? answerLabels : ["Correct Answer", "Answer", "答案"];
+  const labels = answerLabels && answerLabels.length ? answerLabels : ["Correct Answer", "Answer", "\u7b54\u6848"];
   const escaped = labels.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const answerRegex = new RegExp(`^(?:${escaped.join("|")})\\s*[:\uff1a]\\s*(.*)$`, "i");
+  const answerRegex = new RegExp(
+    "^(?:" + escaped.join("|") + ")\\s*[:\uff1a]\\s*([A-J](?:\\s*,?\\s*[A-J])*)",
+    "i"
+  );
 
   let answerLetters = "";
   for (const l of bodyLines) {
@@ -79,12 +76,13 @@ Parsers.parseBlockToQuestion = function (blockText, filename, idx, answerLabels)
     }
   }
   const answers = answerLetters
+    .replace(/[^A-J]/gi, "")
+    .toUpperCase()
     .split("")
-    .filter((c) => /[A-J]/i.test(c))
-    .map((c) => c.toUpperCase().charCodeAt(0) - 65);
+    .map((c) => c.charCodeAt(0) - 65);
 
   return {
-    id: `${filename.replace(/\W+/g, "_")}_${idx}`,
+    id: filename.replace(/\W+/g, "_") + "_" + idx,
     question,
     question_image: null,
     type: answers.length > 1 ? "multiple" : "single",
@@ -96,13 +94,12 @@ Parsers.parseBlockToQuestion = function (blockText, filename, idx, answerLabels)
   };
 };
 
-// ================= CSV / TXT（結構明確時可直接用）=================
 Parsers.parseCSV = function (text, filename) {
   const lines = text.trim().split(/\r?\n/);
   const header = lines[0].split(",");
   const rows = lines.slice(1);
   return rows.map((line, idx) => {
-    const cells = line.split(","); // TODO: 換成正式CSV parser處理引號內逗號
+    const cells = line.split(",");
     const rec = {};
     header.forEach((h, i) => (rec[h.trim()] = (cells[i] || "").trim()));
     const options = Object.keys(rec)
@@ -113,7 +110,7 @@ Parsers.parseCSV = function (text, filename) {
       .filter(Boolean)
       .map((n) => parseInt(n, 10));
     return {
-      id: `csv_${idx}`,
+      id: "csv_" + idx,
       question: rec.question || "",
       question_image: null,
       type: rec.type === "multiple" ? "multiple" : "single",
@@ -126,7 +123,6 @@ Parsers.parseCSV = function (text, filename) {
   });
 };
 
-// ================= RTF：去除控制字元拿純文字，圖片先跳過標記 =================
 Parsers.stripRTF = function (rtfRaw) {
   const pictBlocks = (rtfRaw.match(/\{\\pict[\s\S]*?\}\}/g) || []).length;
   const plainText = rtfRaw
@@ -139,27 +135,58 @@ Parsers.stripRTF = function (rtfRaw) {
   return { plainText, pictBlocks };
 };
 
-// ================= 浮水印/防皣追踪指紋過濾 =================
-// 32位hex字串（近似MD5格式）視為每份PDF唯一的追踪碼，而非固定字串，用格式判斷而非字串清單
-function isWatermarkSpan(item) {
-  return /^[0-9A-F]{32}$/i.test(item.str.trim());
-}
-
-// ================= PDF：抽文字 + 記錄每頁offset + 偵測含圖片頁 =================
-// 回傳 {fullText, pageBoundaries, filename}，不在此直接切題，交給main.js做互動式確認
 Parsers.extractPDFText = async function (arrayBuffer, filename) {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const numPages = pdf.numPages;
+
+  const pageItemsCache = [];
+  const pageFrequency = {};
+
+  for (let p = 1; p <= numPages; p++) {
+    const page = await pdf.getPage(p);
+    const textContent = await page.getTextContent();
+    pageItemsCache.push({ page, items: textContent.items });
+
+    const seenThisPage = new Set();
+    textContent.items.forEach((item) => {
+      const t = item.str.trim();
+      if (!t || seenThisPage.has(t)) return;
+      seenThisPage.add(t);
+      pageFrequency[t] = (pageFrequency[t] || 0) + 1;
+    });
+  }
+
+  const repeatThreshold = Math.max(3, Math.ceil(numPages * 0.3));
+  function isNoiseSpan(str) {
+    const t = str.trim();
+    if (!t) return true;
+    if (/^[0-9A-F]{32}$/i.test(t)) return true;
+    if (pageFrequency[t] && pageFrequency[t] >= repeatThreshold) return true;
+    return false;
+  }
+
   let fullText = "";
   const pageBoundaries = [];
 
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
-    const textContent = await page.getTextContent();
-    const filtered = textContent.items.filter((item) => !isWatermarkSpan(item));
-    const pageText = filtered.map((item) => item.str).join(" ") + "\n\n";
+  for (let i = 0; i < pageItemsCache.length; i++) {
+    const { page, items } = pageItemsCache[i];
+    let pageText = "";
+    let lastY = null;
+
+    items.forEach((item) => {
+      if (isNoiseSpan(item.str)) return;
+      const y = item.transform ? item.transform[5] : null;
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) {
+        pageText += "\n";
+      } else if (pageText && !/\s$/.test(pageText)) {
+        pageText += " ";
+      }
+      pageText += item.str;
+      if (y !== null) lastY = y;
+    });
 
     const startOffset = fullText.length;
-    fullText += pageText;
+    fullText += pageText + "\n\n";
     const endOffset = fullText.length;
 
     const opList = await page.getOperatorList();
@@ -170,14 +197,14 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
         fn === pdfjsLib.OPS.paintImageMaskXObject
     );
 
-    pageBoundaries.push({ page: p, startOffset, endOffset, hasImage, pdfPageRef: page });
+    pageBoundaries.push({ page: i + 1, startOffset, endOffset, hasImage, pdfPageRef: page });
   }
 
   return { fullText, pageBoundaries, filename };
 };
 
-// 依需要才把某一頁rasterize成截圖（簡化版圖片方案：整頁截圖，不做精準裁切）
-Parsers.renderPageImage = async function (page, scale = 1.5) {
+Parsers.renderPageImage = async function (page, scale) {
+  scale = scale || 1.5;
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
   canvas.width = viewport.width;
@@ -187,7 +214,6 @@ Parsers.renderPageImage = async function (page, scale = 1.5) {
   return canvas.toDataURL("image/png");
 };
 
-// 統一入口：pdf/txt/rtf 都走「抽原始文字+頁面資訊」，交給main.js的互動式pipeline
 Parsers.extractRawText = async function (file, ext) {
   if (ext === "pdf") {
     const arrayBuffer = await file.arrayBuffer();
@@ -198,12 +224,10 @@ Parsers.extractRawText = async function (file, ext) {
     const { plainText } = Parsers.stripRTF(raw);
     return { fullText: plainText, pageBoundaries: [], filename: file.name };
   }
-  // txt
   const text = await file.text();
   return { fullText: text, pageBoundaries: [], filename: file.name };
 };
 
-// ================= DOCX (mammoth.js) — 仍為半自動，需人工確認切分規則 =================
 Parsers.parseDOCX = async function (arrayBuffer, filename) {
   const result = await mammoth.convertToHtml(
     { arrayBuffer },
@@ -223,7 +247,6 @@ Parsers.parseDOCX = async function (arrayBuffer, filename) {
   };
 };
 
-// ================= Excel (ExcelJS) =================
 Parsers.parseExcel = async function (arrayBuffer, filename) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(arrayBuffer);
@@ -232,7 +255,7 @@ Parsers.parseExcel = async function (arrayBuffer, filename) {
   const imageMap = {};
   sheet.getImages().forEach((img) => {
     const media = workbook.model.media.find((m) => m.index === img.imageId);
-    const dataUri = `data:image/${media.extension};base64,${media.buffer.toString("base64")}`;
+    const dataUri = "data:image/" + media.extension + ";base64," + media.buffer.toString("base64");
     const row = Math.round(img.range.tl.row);
     imageMap[row] = dataUri;
   });
@@ -243,7 +266,7 @@ Parsers.parseExcel = async function (arrayBuffer, filename) {
     const get = (col) => row.getCell(col).text || "";
     const options = [];
     for (let i = 1; i <= 10; i++) {
-      const val = get(`option${i}`);
+      const val = get("option" + i);
       if (val) options.push(val);
     }
     const answers = get("answer")
@@ -251,7 +274,7 @@ Parsers.parseExcel = async function (arrayBuffer, filename) {
       .filter(Boolean)
       .map((n) => parseInt(n, 10));
     questions.push({
-      id: `xlsx_row${rowNumber}`,
+      id: "xlsx_row" + rowNumber,
       question: get("question"),
       question_image: imageMap[rowNumber - 1] || null,
       type: get("type") === "multiple" ? "multiple" : "single",
