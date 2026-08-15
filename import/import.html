@@ -3,10 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <title>題庫匯入工具 - take_the_test</title>
-<script src="vendor/pdf.js"></script>
-<script src="vendor/mammoth.browser.js"></script>
-<script src="vendor/exceljs.min.js"></script>
-<script src="vendor/jszip.min.js"></script>
+<!-- 第三方函式庫改用CDN載入，不再依賴本地vendor/檔案 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.9/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
   <h1>題庫匯入工具</h1>
