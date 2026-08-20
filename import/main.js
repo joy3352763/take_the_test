@@ -224,3 +224,10 @@ document.getElementById("downloadJsonBtn").addEventListener("click", () => {
 document.getElementById("downloadZipBtn").addEventListener("click", () => {
   Core.downloadAssetsZip(currentAssetBag);
 });
+
+window.getAllQuestions = () => allQuestions;
+(function () {
+  const s = document.createElement("script");
+  s.src = "scriptjs-export.js";
+  document.body.appendChild(s);
+})();
