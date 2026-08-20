@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>題庫匯入工具 - take_the_test</title>
+<title>\u984c\u5eab\u532f\u5165\u5de5\u5177 - take_the_test</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -12,41 +12,44 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
-  <h1>題庫匯入工具</h1>
+  <h1>\u984c\u5eab\u532f\u5165\u5de5\u5177</h1>
 
   <div id="step1">
-    <h2>Step 1：選擇檔案並分析格式</h2>
+    <h2>Step 1\uff1a\u9078\u64c7\u6a94\u6848\u4e26\u5206\u6790\u683c\u5f0f</h2>
     <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.csv,.txt,.rtf" multiple>
-    <button id="analyzeBtn">分析格式</button>
-    <p style="color:#666">PDF/TXT/RTF會進入Step 2讓你確認切題方式；CSV/Excel/DOCX會直接處理。</p>
+    <button id="analyzeBtn">\u5206\u6790\u683c\u5f0f</button>
+    <p style="color:#666">PDF/TXT/RTF\u6703\u9032\u5165Step 2\u8b93\u4f60\u78ba\u8a8d\u5207\u984c\u65b9\u5f0f\uff1bCSV/Excel/DOCX\u6703\u76f4\u63a5\u8655\u7406\u3002</p>
   </div>
 
   <div id="step2" style="display:none">
-    <h2>Step 2：確認切題分界與答案標記</h2>
+    <h2>Step 2\uff1a\u78ba\u8a8d\u5207\u984c\u5206\u754c\u8207\u7b54\u6848\u6a19\u8a18</h2>
 
-    <h3>切題分界（每題的起始標記）</h3>
+    <h3>\u5207\u984c\u5206\u754c\uff08\u6bcf\u984c\u7684\u8d77\u59cb\u6a19\u8a18\uff09</h3>
     <div id="delimiterOptions"></div>
-    <label>自訂regex（留空則用上面選項）:
-      <input type="text" id="customDelimiter" style="width:300px" placeholder="例如: QUESTION\s+\d+\.">
+    <label>\u81ea\u8a02regex\uff08\u7559\u7a7a\u5247\u7528\u4e0a\u9762\u9078\u9805\uff09:
+      <input type="text" id="customDelimiter" style="width:300px" placeholder="\u4f8b\u5982: QUESTION\s+\d+\.">
     </label>
 
-    <h3>答案標記格式（可多選，同一份題庫可能混用）</h3>
+    <h3>\u7b54\u6848\u6a19\u8a18\u683c\u5f0f\uff08\u53ef\u591a\u9078\uff0c\u540c\u4e00\u4efd\u984c\u5eab\u53ef\u80fd\u6df7\u7528\uff09</h3>
     <div id="answerLabelOptions"></div>
 
-    <button id="previewBtn">預覽切題結果</button>
+    <h3>\u7591\u4f3c\u6d6e\u6c34\u5370/\u91cd\u8907\u6587\u5b57\uff08\u52fe\u9078\u4ee5\u6fe4\u9664\uff0c\u4e0d\u78ba\u5b9a\u5c31\u4e0d\u8981\u52fe\uff09</h3>
+    <div id="noiseOptions"></div>
+
+    <button id="previewBtn">\u9810\u89bd\u5207\u984c\u7d50\u679c</button>
     <div id="previewArea"></div>
 
-    <button id="confirmConvertBtn" disabled>確認並轉換全部題目</button>
+    <button id="confirmConvertBtn" disabled>\u78ba\u8a8d\u4e26\u8f49\u63db\u5168\u90e8\u984c\u76ee</button>
   </div>
 
-  <h2>轉換結果</h2>
+  <h2>\u8f49\u63db\u7d50\u679c</h2>
   <div id="summary"></div>
 
-  <h3>需人工覆核清單</h3>
+  <h3>\u9700\u4eba\u5de5\u8986\u6838\u6e05\u55ae</h3>
   <ul id="reviewList"></ul>
 
-  <button id="downloadJsonBtn" disabled>下載 questions.json</button>
-  <button id="downloadZipBtn" disabled>下載 assets.zip（大圖片）</button>
+  <button id="downloadJsonBtn" disabled>\u4e0b\u8f09 questions.json</button>
+  <button id="downloadZipBtn" disabled>\u4e0b\u8f09 assets.zip\uff08\u5927\u5716\u7247\uff09</button>
 
   <script src="parsers.js"></script>
   <script src="core.js"></script>

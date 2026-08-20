@@ -1,4 +1,4 @@
-// parsers.js v4: fix answer-label/letter line-split regression + accurate candidate counts
+// parsers.js v5: noise candidates require user confirmation (only hex fingerprint auto-filtered)
 
 const Parsers = {};
 
@@ -13,7 +13,6 @@ Parsers.detectDelimiterCandidates = function (text) {
   return candidates.map((c) => ({ ...c, count: (text.match(c.regex) || []).length }));
 };
 
-// 不再要求anchor在行首，只要文件裡有出現就算命中，避免因行斷點誤判導致計數失真
 Parsers.detectAnswerLabelCandidates = function (text) {
   const candidates = [
     { key: "correct_answer", label: "Correct Answer:", pattern: "Correct Answer" },
@@ -44,7 +43,6 @@ Parsers.splitByDelimiter = function (text, delimiterRegex) {
   return blocks;
 };
 
-// 在bodyLines裡找答案標記，若同一行沒有接到字母，就續接下一行找（容忍行斷點誤判分开的情況）
 function findAnswerLetters(bodyLines, escapedLabels) {
   const labelRegex = new RegExp("^(?:" + escapedLabels.join("|") + ")\\s*[:\uff1a]\\s*(.*)$", "i");
   const letterRegex = /^[A-J](?:\s*,?\s*[A-J])*/i;
@@ -56,7 +54,6 @@ function findAnswerLetters(bodyLines, escapedLabels) {
     let rest = (m[1] || "").trim();
     let letterMatch = rest.match(letterRegex);
     if (!letterMatch && i + 1 < bodyLines.length) {
-      // 同一行沒有字母，可能被行斷點誤判分開，往下一行找
       letterMatch = bodyLines[i + 1].trim().match(letterRegex);
     }
     if (letterMatch) return letterMatch[0];
@@ -146,6 +143,7 @@ Parsers.stripRTF = function (rtfRaw) {
   return { plainText, pictBlocks };
 };
 
+// 只自動過濾hex指紋碼，其他重複文字都保留在fullText裡，區間掛頁頻率統計回傳給main.js讓使用者確認是否要手動濾掉
 Parsers.extractPDFText = async function (arrayBuffer, filename) {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const numPages = pdf.numPages;
@@ -167,13 +165,8 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
     });
   }
 
-  const repeatThreshold = Math.max(3, Math.ceil(numPages * 0.3));
-  function isNoiseSpan(str) {
-    const t = str.trim();
-    if (!t) return true;
-    if (/^[0-9A-F]{32}$/i.test(t)) return true;
-    if (pageFrequency[t] && pageFrequency[t] >= repeatThreshold) return true;
-    return false;
+  function isHexFingerprint(str) {
+    return /^[0-9A-F]{32}$/i.test(str.trim());
   }
 
   let fullText = "";
@@ -185,9 +178,8 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
     let lastY = null;
 
     items.forEach((item) => {
-      if (isNoiseSpan(item.str)) return;
+      if (isHexFingerprint(item.str)) return;
       const y = item.transform ? item.transform[5] : null;
-      // 添大容差閃值（從2拉到4）避免同行內字體微小基線差被誤判為換行
       if (lastY !== null && y !== null && Math.abs(y - lastY) > 4) {
         pageText += "\n";
       } else if (pageText && !/\s$/.test(pageText)) {
@@ -212,7 +204,28 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
     pageBoundaries.push({ page: i + 1, startOffset, endOffset, hasImage, pdfPageRef: page });
   }
 
-  return { fullText, pageBoundaries, filename };
+  return { fullText, pageBoundaries, pageFrequency, numPages, filename };
+};
+
+// 偵測疑似浮水印/噪音的候選字串，只列出供使用者確認，不自動過濾
+// 排除長度太短的字串（如選項字母"A."）避免誤列入候選
+Parsers.detectNoiseCandidates = function (pageFrequency, numPages) {
+  const threshold = Math.max(3, Math.ceil(numPages * 0.3));
+  return Object.entries(pageFrequency)
+    .filter(([str, count]) => str.length >= 6 && count >= threshold)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([text, count]) => ({ text, count, ratio: count / numPages }));
+};
+
+// 從fullText裡寮除使用者勾選要濾掉的字串
+Parsers.removeNoiseStrings = function (text, noiseStrings) {
+  let result = text;
+  (noiseStrings || []).forEach((s) => {
+    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result.replace(new RegExp(escaped, "g"), " ");
+  });
+  return result;
 };
 
 Parsers.renderPageImage = async function (page, scale) {
@@ -234,10 +247,10 @@ Parsers.extractRawText = async function (file, ext) {
   if (ext === "rtf") {
     const raw = await file.text();
     const { plainText } = Parsers.stripRTF(raw);
-    return { fullText: plainText, pageBoundaries: [], filename: file.name };
+    return { fullText: plainText, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name };
   }
   const text = await file.text();
-  return { fullText: text, pageBoundaries: [], filename: file.name };
+  return { fullText: text, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name };
 };
 
 Parsers.parseDOCX = async function (arrayBuffer, filename) {
