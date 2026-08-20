@@ -1,9 +1,8 @@
-// main.js — v2: 兩階段流程
-// Step1 分析格式 -> Step2 人工確認切題分界/答案標記+預覽 -> Step3 確認轉換 -> 結果/下載
+// main.js v3: adds noise-candidate confirmation step before splitting
 
-let textSources = [];       // [{fullText, pageBoundaries, filename}] 來自 pdf/txt/rtf
-let structuredQuestions = []; // 來自 csv/xlsx，已經是完整schema
-let pendingDocx = [];        // 來自 docx，raw_html，需另外人工處理
+let textSources = [];
+let structuredQuestions = [];
+let pendingDocx = [];
 let allQuestions = [];
 let currentAssetBag = {};
 
@@ -14,7 +13,7 @@ document.getElementById("analyzeBtn").addEventListener("click", async () => {
 
   const files = document.getElementById("fileInput").files;
   if (!files.length) {
-    alert("請先選擇檔案");
+    alert("\u8acb\u5148\u9078\u64c7\u6a94\u6848");
     return;
   }
 
@@ -31,10 +30,10 @@ document.getElementById("analyzeBtn").addEventListener("click", async () => {
       } else if (ext === "docx") {
         pendingDocx.push(await Parsers.parseDOCX(await file.arrayBuffer(), file.name));
       } else {
-        console.warn(`不支援的格式: ${ext}`);
+        console.warn("unsupported ext: " + ext);
       }
     } catch (e) {
-      console.error(`讀取 ${file.name} 失敗:`, e);
+      console.error("read failed: " + file.name, e);
     }
   }
 
@@ -46,6 +45,18 @@ document.getElementById("analyzeBtn").addEventListener("click", async () => {
   const combinedText = textSources.map((s) => s.fullText).join("\n\n");
   renderDelimiterCandidates(Parsers.detectDelimiterCandidates(combinedText));
   renderAnswerLabelCandidates(Parsers.detectAnswerLabelCandidates(combinedText));
+
+  const mergedFreq = {};
+  let totalPages = 0;
+  textSources.forEach((s) => {
+    totalPages += s.numPages || 0;
+    Object.entries(s.pageFrequency || {}).forEach(([k, v]) => {
+      mergedFreq[k] = (mergedFreq[k] || 0) + v;
+    });
+  });
+  const noiseCandidates = totalPages > 0 ? Parsers.detectNoiseCandidates(mergedFreq, totalPages) : [];
+  renderNoiseCandidates(noiseCandidates);
+
   document.getElementById("step2").style.display = "block";
 });
 
@@ -55,7 +66,7 @@ function renderDelimiterCandidates(candidates) {
   candidates.forEach((c, i) => {
     const label = document.createElement("label");
     label.style.display = "block";
-    label.innerHTML = `<input type="radio" name="delimiter" value="${c.key}" ${i === 0 ? "checked" : ""}> ${c.label}（命中 ${c.count} 次）`;
+    label.innerHTML = '<input type="radio" name="delimiter" value="' + c.key + '" ' + (i === 0 ? "checked" : "") + "> " + c.label + " (\u547d\u4e2d " + c.count + " \u6b21)";
     container.appendChild(label);
   });
   container.dataset.candidates = JSON.stringify(
@@ -70,9 +81,27 @@ function renderAnswerLabelCandidates(candidates) {
     const label = document.createElement("label");
     label.style.display = "block";
     const checked = c.count > 0 ? "checked" : "";
-    label.innerHTML = `<input type="checkbox" name="answerLabel" value="${c.pattern}" ${checked}> ${c.label}（命中 ${c.count} 次）`;
+    label.innerHTML = '<input type="checkbox" name="answerLabel" value="' + c.pattern + '" ' + checked + "> " + c.label + " (\u547d\u4e2d " + c.count + " \u6b21)";
     container.appendChild(label);
   });
+}
+
+function renderNoiseCandidates(candidates) {
+  const container = document.getElementById("noiseOptions");
+  container.innerHTML = "";
+  if (!candidates.length) {
+    container.innerHTML = "<p>\u672a\u5075\u6e2c\u5230\u53ef\u7591\u7684\u91cd\u8907\u6587\u5b57\u3002</p>";
+    return;
+  }
+  candidates.forEach((c, i) => {
+    const label = document.createElement("label");
+    label.style.display = "block";
+    const pct = Math.round(c.ratio * 100);
+    const preview = c.text.length > 40 ? c.text.slice(0, 40) + "..." : c.text;
+    label.innerHTML = '<input type="checkbox" name="noiseCandidate" value="' + i + '"> [' + pct + "% \u9801\u91cd\u8907] " + preview;
+    container.appendChild(label);
+  });
+  container.dataset.candidates = JSON.stringify(candidates);
 }
 
 function getSelectedDelimiterRegex() {
@@ -81,7 +110,7 @@ function getSelectedDelimiterRegex() {
     try {
       return new RegExp(custom, "gi");
     } catch (e) {
-      alert("自訂regex格式錯誤: " + e.message);
+      alert("\u81ea\u8a02regex\u683c\u5f0f\u932f\u8aa4: " + e.message);
       throw e;
     }
   }
@@ -97,17 +126,31 @@ function getSelectedAnswerLabels() {
   return Array.from(checked).map((el) => el.value);
 }
 
+function getSelectedNoiseStrings() {
+  const container = document.getElementById("noiseOptions");
+  const candidates = JSON.parse(container.dataset.candidates || "[]");
+  const checked = document.querySelectorAll('input[name="noiseCandidate"]:checked');
+  return Array.from(checked).map((el) => candidates[parseInt(el.value, 10)].text);
+}
+
+function applyNoiseRemoval(fullText) {
+  const noiseStrings = getSelectedNoiseStrings();
+  return noiseStrings.length ? Parsers.removeNoiseStrings(fullText, noiseStrings) : fullText;
+}
+
 document.getElementById("previewBtn").addEventListener("click", () => {
   const delimiterRegex = getSelectedDelimiterRegex();
-  const blocks = Parsers.splitByDelimiter(textSources[0].fullText, delimiterRegex).slice(0, 3);
+  const cleanedText = applyNoiseRemoval(textSources[0].fullText);
+  const allBlocks = Parsers.splitByDelimiter(cleanedText, delimiterRegex);
+  const blocks = allBlocks.slice(0, 3);
   const previewEl = document.getElementById("previewArea");
-  previewEl.innerHTML = `<p>共切出 ${Parsers.splitByDelimiter(textSources[0].fullText, delimiterRegex).length} 個區塊，以下是前3個預覽：</p>`;
+  previewEl.innerHTML = "<p>\u5171\u5207\u51fa " + allBlocks.length + " \u500b\u5340\u584a\uff0c\u4ee5\u4e0b\u662f\u524d3\u500b\u9810\u89bd\uff1a</p>";
   blocks.forEach((b, i) => {
     const pre = document.createElement("pre");
     pre.style.border = "1px solid #ccc";
     pre.style.padding = "8px";
     pre.style.whiteSpace = "pre-wrap";
-    pre.textContent = `[區塊 ${i + 1}]\n` + b.text.slice(0, 400);
+    pre.textContent = "[\u5340\u584a " + (i + 1) + "]\n" + b.text.slice(0, 400);
     previewEl.appendChild(pre);
   });
   document.getElementById("confirmConvertBtn").disabled = false;
@@ -116,10 +159,12 @@ document.getElementById("previewBtn").addEventListener("click", () => {
 document.getElementById("confirmConvertBtn").addEventListener("click", async () => {
   const delimiterRegex = getSelectedDelimiterRegex();
   const answerLabels = getSelectedAnswerLabels();
+  const noiseStrings = getSelectedNoiseStrings();
   let textQuestions = [];
 
   for (const src of textSources) {
-    const blocks = Parsers.splitByDelimiter(src.fullText, delimiterRegex);
+    const cleanedText = noiseStrings.length ? Parsers.removeNoiseStrings(src.fullText, noiseStrings) : src.fullText;
+    const blocks = Parsers.splitByDelimiter(cleanedText, delimiterRegex);
     for (let i = 0; i < blocks.length; i++) {
       const q = Parsers.parseBlockToQuestion(blocks[i].text, src.filename, i, answerLabels);
 
@@ -131,9 +176,9 @@ document.getElementById("confirmConvertBtn").addEventListener("click", async () 
         if (withImage) {
           try {
             q.question_image = await Parsers.renderPageImage(withImage.pdfPageRef);
-            q.needs_review = true; // 整頁截圖，需人工確認/裁切
+            q.needs_review = true;
           } catch (e) {
-            console.warn("頁面截圖失敗:", e);
+            console.warn("page render failed:", e);
           }
         }
       }
@@ -159,19 +204,15 @@ async function finalizeAndRender(collected) {
 
 function renderSummary(questions, reviewList) {
   const summaryEl = document.getElementById("summary");
-  summaryEl.innerHTML = `
-    <p>總題數: ${questions.length}</p>
-    <p>需人工覆核: ${reviewList.length}</p>
-  `;
+  summaryEl.innerHTML = "<p>\u7e3d\u984c\u6578: " + questions.length + "</p><p>\u9700\u4eba\u5de5\u8986\u6838: " + reviewList.length + "</p>";
 
   const listEl = document.getElementById("reviewList");
   listEl.innerHTML = "";
   reviewList.forEach((q) => {
     const li = document.createElement("li");
-    const text = q.question ? q.question.slice(0, 40) : "(DOCX原始HTML，需另外整理)";
-    li.textContent = `[${q.id || q.source?.file}] ${text}... ${
-      q._errors ? "錯誤: " + q._errors.join(", ") : q.question_image ? "(含整頁截圖,需確認/裁切)" : ""
-    }`;
+    const text = q.question ? q.question.slice(0, 40) : "(DOCX raw HTML)";
+    const extra = q._errors ? "\u932f\u8aa4: " + q._errors.join(", ") : q.question_image ? "(\u542b\u6574\u9801\u622a\u5716,\u9700\u78ba\u8a8d/\u88c1\u5207)" : "";
+    li.textContent = "[" + (q.id || (q.source && q.source.file)) + "] " + text + "... " + extra;
     listEl.appendChild(li);
   });
 }

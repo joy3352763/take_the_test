@@ -1,4 +1,4 @@
-// parsers.js v3: interactive format confirmation + line reconstruction + cross-page frequency watermark detection + tightened answer capture
+// parsers.js v5: noise candidates require user confirmation (only hex fingerprint auto-filtered)
 
 const Parsers = {};
 
@@ -20,7 +20,7 @@ Parsers.detectAnswerLabelCandidates = function (text) {
     { key: "zh_answer", label: "Answer (zh):", pattern: "\u7b54\u6848" },
   ];
   return candidates.map((c) => {
-    const re = new RegExp("^" + c.pattern + "\\s*[:\uff1a]", "gim");
+    const re = new RegExp(c.pattern + "\\s*[:\uff1a]", "gi");
     return { ...c, count: (text.match(re) || []).length };
   });
 };
@@ -43,6 +43,25 @@ Parsers.splitByDelimiter = function (text, delimiterRegex) {
   return blocks;
 };
 
+function findAnswerLetters(bodyLines, escapedLabels) {
+  const labelRegex = new RegExp("^(?:" + escapedLabels.join("|") + ")\\s*[:\uff1a]\\s*(.*)$", "i");
+  const letterRegex = /^[A-J](?:\s*,?\s*[A-J])*/i;
+
+  for (let i = 0; i < bodyLines.length; i++) {
+    const m = bodyLines[i].match(labelRegex);
+    if (!m) continue;
+
+    let rest = (m[1] || "").trim();
+    let letterMatch = rest.match(letterRegex);
+    if (!letterMatch && i + 1 < bodyLines.length) {
+      letterMatch = bodyLines[i + 1].trim().match(letterRegex);
+    }
+    if (letterMatch) return letterMatch[0];
+    return "";
+  }
+  return "";
+}
+
 Parsers.parseBlockToQuestion = function (blockText, filename, idx, answerLabels) {
   const lines = blockText
     .split(/\r?\n/)
@@ -62,19 +81,8 @@ Parsers.parseBlockToQuestion = function (blockText, filename, idx, answerLabels)
 
   const labels = answerLabels && answerLabels.length ? answerLabels : ["Correct Answer", "Answer", "\u7b54\u6848"];
   const escaped = labels.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const answerRegex = new RegExp(
-    "^(?:" + escaped.join("|") + ")\\s*[:\uff1a]\\s*([A-J](?:\\s*,?\\s*[A-J])*)",
-    "i"
-  );
 
-  let answerLetters = "";
-  for (const l of bodyLines) {
-    const m = l.match(answerRegex);
-    if (m) {
-      answerLetters = m[1];
-      break;
-    }
-  }
+  const answerLetters = findAnswerLetters(bodyLines, escaped);
   const answers = answerLetters
     .replace(/[^A-J]/gi, "")
     .toUpperCase()
@@ -135,6 +143,7 @@ Parsers.stripRTF = function (rtfRaw) {
   return { plainText, pictBlocks };
 };
 
+// 只自動過濾hex指紋碼，其他重複文字都保留在fullText裡，區間掛頁頻率統計回傳給main.js讓使用者確認是否要手動濾掉
 Parsers.extractPDFText = async function (arrayBuffer, filename) {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const numPages = pdf.numPages;
@@ -156,13 +165,8 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
     });
   }
 
-  const repeatThreshold = Math.max(3, Math.ceil(numPages * 0.3));
-  function isNoiseSpan(str) {
-    const t = str.trim();
-    if (!t) return true;
-    if (/^[0-9A-F]{32}$/i.test(t)) return true;
-    if (pageFrequency[t] && pageFrequency[t] >= repeatThreshold) return true;
-    return false;
+  function isHexFingerprint(str) {
+    return /^[0-9A-F]{32}$/i.test(str.trim());
   }
 
   let fullText = "";
@@ -174,9 +178,9 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
     let lastY = null;
 
     items.forEach((item) => {
-      if (isNoiseSpan(item.str)) return;
+      if (isHexFingerprint(item.str)) return;
       const y = item.transform ? item.transform[5] : null;
-      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) {
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 4) {
         pageText += "\n";
       } else if (pageText && !/\s$/.test(pageText)) {
         pageText += " ";
@@ -200,7 +204,28 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
     pageBoundaries.push({ page: i + 1, startOffset, endOffset, hasImage, pdfPageRef: page });
   }
 
-  return { fullText, pageBoundaries, filename };
+  return { fullText, pageBoundaries, pageFrequency, numPages, filename };
+};
+
+// 偵測疑似浮水印/噪音的候選字串，只列出供使用者確認，不自動過濾
+// 排除長度太短的字串（如選項字母"A."）避免誤列入候選
+Parsers.detectNoiseCandidates = function (pageFrequency, numPages) {
+  const threshold = Math.max(3, Math.ceil(numPages * 0.3));
+  return Object.entries(pageFrequency)
+    .filter(([str, count]) => str.length >= 6 && count >= threshold)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([text, count]) => ({ text, count, ratio: count / numPages }));
+};
+
+// 從fullText裡寮除使用者勾選要濾掉的字串
+Parsers.removeNoiseStrings = function (text, noiseStrings) {
+  let result = text;
+  (noiseStrings || []).forEach((s) => {
+    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result.replace(new RegExp(escaped, "g"), " ");
+  });
+  return result;
 };
 
 Parsers.renderPageImage = async function (page, scale) {
@@ -222,10 +247,10 @@ Parsers.extractRawText = async function (file, ext) {
   if (ext === "rtf") {
     const raw = await file.text();
     const { plainText } = Parsers.stripRTF(raw);
-    return { fullText: plainText, pageBoundaries: [], filename: file.name };
+    return { fullText: plainText, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name };
   }
   const text = await file.text();
-  return { fullText: text, pageBoundaries: [], filename: file.name };
+  return { fullText: text, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name };
 };
 
 Parsers.parseDOCX = async function (arrayBuffer, filename) {
