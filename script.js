@@ -4,6 +4,13 @@ const ansMap = {
     '1': '1', '2': '2', '3': '3', '4': '4'
 };
 
+// 動態取得一題實際有幾個選項（不寫死上限），依「選項N」欄位存在且非空為準，依N排序回傳
+function getOptionKeys(question) {
+    return Object.keys(question)
+        .filter(k => /^選項\d+$/.test(k) && question[k])
+        .sort((a, b) => parseInt(a.replace('選項', ''), 10) - parseInt(b.replace('選項', ''), 10));
+}
+
 const THEME_PRESETS = {
     default: { bg: '#f3f4f6', card: '#ffffff', text: '#1f2937' },
     dark: { bg: '#111827', card: '#1f2937', text: '#f9fafb' },
@@ -857,12 +864,10 @@ function displayQuestion() {
         createOptionElement('O', '是', 'O', 'radio');
         createOptionElement('X', '非', 'X', 'radio');
     } else {
-        for (let i = 1; i <= 4; i++) {
-            const optionKey = `選項${i}`;
-            if (question[optionKey]) {
-                createOptionElement(i, question[optionKey], i, inputType);
-            }
-        }
+        getOptionKeys(question).forEach((optionKey) => {
+            const i = parseInt(optionKey.replace('選項', ''), 10);
+            createOptionElement(i, question[optionKey], i, inputType);
+        });
     }
 
     if (userAnswers[currentQuestionIndex]) {
@@ -1361,11 +1366,10 @@ function buildSpeechText() {
     if (q.題型 === '是非題') {
         text += '。選項：是，非。';
     } else {
-        const parts = [];
-        for (let i = 1; i <= 4; i++) {
-            const key = `選項${i}`;
-            if (q[key]) parts.push(`選項${i}，${q[key]}`);
-        }
+        const parts = getOptionKeys(q).map((key) => {
+            const i = parseInt(key.replace('選項', ''), 10);
+            return `選項${i}，${q[key]}`;
+        });
         if (parts.length > 0) {
             text += '。' + parts.join('。');
         }
@@ -1469,10 +1473,10 @@ async function toggleTranslateCurrentQuestion() {
             optionTexts.push({ label: '是', text: '是' });
             optionTexts.push({ label: '非', text: '非' });
         } else {
-            for (let i = 1; i <= 4; i++) {
-                const key = `選項${i}`;
-                if (q[key]) optionTexts.push({ label: `選項${i}`, text: q[key] });
-            }
+            getOptionKeys(q).forEach((key) => {
+                const i = parseInt(key.replace('選項', ''), 10);
+                optionTexts.push({ label: `選項${i}`, text: q[key] });
+            });
         }
 
         const [translatedQuestion, ...translatedOptions] = await Promise.all([
