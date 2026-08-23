@@ -5,10 +5,11 @@
 //
 // Versioning: MAJOR.MINOR.PATCH
 // - PATCH: bug fixes (e.g. the \line normalization fix)
-// - MINOR: new features / behavior changes (e.g. RTF convention support)
+// - MINOR: new features / behavior changes (e.g. RTF convention support, rtf.js-based
+//   extraction)
 // - MAJOR: breaking changes to existing data/behavior
 // Bump this string in every commit that changes import/*.js.
-const IMPORT_TOOL_VERSION = "1.0.0";
+const IMPORT_TOOL_VERSION = "1.1.0";
 
 (function () {
   const footer = document.createElement("div");

@@ -173,6 +173,8 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
 // control-word stripper with NO replacement, silently gluing "Q1" directly onto the next
 // word with zero separator (e.g. "Q1A recent zero-day vulnerability..."). Normalize \line
 // to \par before calling the original stripRTF so it gets converted to a real newline.
+// NOTE: this remains as a fallback path -- see the rtf.js-based extraction below, which
+// is used instead whenever the library successfully loads.
 (function () {
   const originalStripRTF = Parsers.stripRTF;
   Parsers.stripRTF = function (rtfRaw) {
@@ -180,3 +182,93 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
     return originalStripRTF(normalized);
   };
 })();
+
+// ================= rtf.js-based extraction (real parser) =================
+// Replaces the "reconstruct line breaks from raw RTF control words via regex" role
+// that stripRTF played, with a real spec-compliant parser (rtf.js). Everything below
+// this point in the file (RTFConventions object, parseBlockToQuestionV2, the delimiter
+// wrapper, answer/explanation extraction) is completely unchanged and still fully
+// regex-driven -- rtf.js only replaces the "did I correctly find every line break"
+// job, not the "does this line look like a delimiter/option/answer" job.
+//
+// Falls back to the existing regex-based Parsers.extractRawText path (with the \line
+// fix above) if the library fails to load or throws, so a CDN hiccup degrades
+// gracefully instead of breaking RTF import entirely.
+
+const RTFJS_CDN_BASE = "https://unpkg.com/rtf.js@3.0.7/dist/";
+
+let rtfLibrariesReadyPromise = null;
+function loadRTFLibraries() {
+  if (rtfLibrariesReadyPromise) return rtfLibrariesReadyPromise;
+  rtfLibrariesReadyPromise = new Promise((resolve) => {
+    if (window.RTFJS) {
+      resolve(true);
+      return;
+    }
+    const files = ["WMFJS.bundle.js", "EMFJS.bundle.js", "RTFJS.bundle.js"];
+    let remaining = files.length;
+    let failed = false;
+    files.forEach((name) => {
+      const s = document.createElement("script");
+      s.src = RTFJS_CDN_BASE + name;
+      s.async = false;
+      s.onload = () => {
+        remaining--;
+        if (remaining === 0) resolve(!failed);
+      };
+      s.onerror = () => {
+        failed = true;
+        remaining--;
+        if (remaining === 0) resolve(false);
+      };
+      document.body.appendChild(s);
+    });
+  });
+  return rtfLibrariesReadyPromise;
+}
+RTFConventions.loadRTFLibraries = loadRTFLibraries;
+
+RTFConventions.rtfBufferToPlainText = async function (arrayBuffer) {
+  try {
+    if (window.RTFJS && RTFJS.loggingEnabled) RTFJS.loggingEnabled(false);
+    if (window.WMFJS && WMFJS.loggingEnabled) WMFJS.loggingEnabled(false);
+    if (window.EMFJS && EMFJS.loggingEnabled) EMFJS.loggingEnabled(false);
+  } catch (e) {
+    // logging toggle is non-essential; ignore failures
+  }
+
+  const doc = new RTFJS.Document(arrayBuffer);
+  const htmlElements = await doc.render();
+
+  const paragraphLines = htmlElements.map((el) => {
+    const html = el.innerHTML !== undefined ? el.innerHTML : el.outerHTML || "";
+    const withBreaks = html.replace(/<br\s*\/?>/gi, "\n");
+    const tmp = document.createElement("div");
+    tmp.innerHTML = withBreaks;
+    return tmp.textContent || "";
+  });
+
+  return paragraphLines.join("\n");
+};
+
+(function () {
+  const originalExtractRawText = Parsers.extractRawText;
+  Parsers.extractRawText = async function (file, ext) {
+    if (ext === "rtf") {
+      try {
+        const ready = await loadRTFLibraries();
+        if (ready && window.RTFJS) {
+          const buffer = await file.arrayBuffer();
+          const plainText = await RTFConventions.rtfBufferToPlainText(buffer);
+          return { fullText: plainText, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name };
+        }
+        console.warn("rtf.js failed to load; falling back to regex-based RTF extraction.");
+      } catch (e) {
+        console.warn("rtf.js parsing failed; falling back to regex-based RTF extraction:", e);
+      }
+    }
+    return originalExtractRawText(file, ext);
+  };
+})();
+
+loadRTFLibraries();
