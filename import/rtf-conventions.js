@@ -30,18 +30,11 @@ RTFConventions.EXAM_FORMATTER_RTF_CONVENTION = {
   skipLinePatterns: [/^Section:/i],
 };
 
-// 32-char hex fingerprint noise line (same format as the PDF watermark), checked at
-// whole-line granularity since RTF/TXT sources are plain lines, not pdf.js text items.
 function isHexFingerprintLine(line) {
   return /^[0-9A-F]{32}$/i.test(line.trim());
 }
 RTFConventions.isHexFingerprintLine = isHexFingerprintLine;
 
-// Fixes the cross-format bug where only lines[0] was used as the question text, silently
-// dropping any question content that comes after an image or spans multiple lines.
-// Collects every line up to (not including) the first option line, skipping hex-fingerprint
-// noise and convention-defined metadata lines, and extracting the image placeholder (if any)
-// as a hasImage flag instead of leaving the literal placeholder text in the question.
 RTFConventions.assembleQuestionText = function (lines, convention) {
   const questionParts = [];
   let hasImage = false;
@@ -65,8 +58,6 @@ RTFConventions.assembleQuestionText = function (lines, convention) {
   return { text: questionParts.join(" ").trim(), hasImage };
 };
 
-// Same shape/behavior as parsers.js's findAnswerLetters, but captures the explanation text
-// itself (everything after the label, plus any following lines) instead of a letter code.
 RTFConventions.findExplanation = function (bodyLines, escapedLabels) {
   if (!escapedLabels || !escapedLabels.length) return "";
   const labelRegex = new RegExp("^(?:" + escapedLabels.join("|") + ")\\s*[:\uff1a]?\\s*(.*)$", "i");
@@ -85,8 +76,6 @@ RTFConventions.findExplanation = function (bodyLines, escapedLabels) {
   return "";
 };
 
-// Mirrors Parsers.detectAnswerLabelCandidates so the Step 2 UI can offer the same
-// checkbox-based candidate-selection UX for explanation labels.
 RTFConventions.detectExplanationLabelCandidates = function (text) {
   const candidates = [
     { key: "expl_ref", label: "Explanation/Reference:", pattern: "Explanation/Reference" },
@@ -101,15 +90,11 @@ RTFConventions.detectExplanationLabelCandidates = function (text) {
   });
 };
 
-// New parse function (does not replace Parsers.parseBlockToQuestion). Reuses the same
-// letter-to-0-based-index convention already validated for the PDF pipeline.
 Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabels, explanationLabels, convention, delimiterRegex) {
   convention = convention || RTFConventions.PDF_DEFAULT_CONVENTION;
   const labels = answerLabels && answerLabels.length ? answerLabels : convention.answerLabels;
   const explLabels = explanationLabels && explanationLabels.length ? explanationLabels : convention.explanationLabels;
 
-  // Derive the delimiter-prefix to strip from whichever delimiter regex the user selected
-  // in Step 2, instead of hardcoding a per-convention prefix pattern.
   if (delimiterRegex) {
     const flatFlags = delimiterRegex.flags.replace(/g/g, "");
     const startRe = new RegExp(delimiterRegex.source, flatFlags);
@@ -172,8 +157,6 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
   };
 };
 
-// Adds the bare "Q3"/"Q4" style delimiter candidate without editing parsers.js's
-// detectDelimiterCandidates directly.
 (function () {
   const originalDetect = Parsers.detectDelimiterCandidates;
   Parsers.detectDelimiterCandidates = function (text) {
@@ -181,5 +164,19 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
     const extra = { key: "q_short", label: "Q number (short form, e.g. Q3)", regex: /^Q\d+\s*$/gm };
     extra.count = (text.match(extra.regex) || []).length;
     return [extra, ...base];
+  };
+})();
+
+// Exam Formatter (and possibly other exporters) uses "\line" (a soft line break) between
+// a bare "Q1" delimiter and the question stem, rather than "\par". parsers.js's stripRTF
+// only converts \par/\pard to a real newline; \line falls through to the generic
+// control-word stripper with NO replacement, silently gluing "Q1" directly onto the next
+// word with zero separator (e.g. "Q1A recent zero-day vulnerability..."). Normalize \line
+// to \par before calling the original stripRTF so it gets converted to a real newline.
+(function () {
+  const originalStripRTF = Parsers.stripRTF;
+  Parsers.stripRTF = function (rtfRaw) {
+    const normalized = rtfRaw.replace(/\\line\b\s?/g, "\\par ");
+    return originalStripRTF(normalized);
   };
 })();
