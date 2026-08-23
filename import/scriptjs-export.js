@@ -19,17 +19,23 @@ ScriptJSExport.answersToScriptFormat = function (answers) {
     .join(".");
 };
 
-// Converts intermediate question objects into script.js's expected flat row shape.
-// Skips needs_review / incomplete questions so unresolved parses never reach the quiz data silently.
+// Assigns a sequential 1-based question number (題號) to every exported row, so
+// script.js's "range" exam-scope mode -- which filters on parseInt(q.題號) -- has
+// something to filter on. The import tool's intermediate schema never carried a question
+// number (issue #14: manually-built CSV/XLSX question banks include 題號, but anything
+// produced by parseBlockToQuestion(V2) did not), so it is generated fresh here.
 ScriptJSExport.toRows = function (questions) {
   const rows = [];
   const skipped = [];
+  let questionNumber = 0;
   (questions || []).forEach((q) => {
     if (q.needs_review || !q.options || q.options.length === 0 || !q.answers || q.answers.length === 0) {
       skipped.push(q);
       return;
     }
+    questionNumber++;
     const row = {
+      題號: questionNumber,
       題型: "選擇題",
       題目: q.question,
       答案: ScriptJSExport.answersToScriptFormat(q.answers),
@@ -52,7 +58,7 @@ ScriptJSExport.rowsToCSV = function (rows) {
   const optionKeys = [...headerSet]
     .filter((k) => /^選項\d+$/.test(k))
     .sort((a, b) => parseInt(a.replace("選項", ""), 10) - parseInt(b.replace("選項", ""), 10));
-  const knownKeys = ["題型", "題目", ...optionKeys, "答案"];
+  const knownKeys = ["題號", "題型", "題目", ...optionKeys, "答案"];
   const restKeys = [...headerSet].filter((k) => !knownKeys.includes(k));
   const headers = [...knownKeys, ...restKeys];
 
