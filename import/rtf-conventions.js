@@ -9,6 +9,14 @@
 // derived from that same regex rather than duplicated as a separate config field.
 
 const RTFConventions = {};
+// IMPORTANT (issue #16 root cause): a top-level `const`/`let` declaration in a classic
+// <script> does NOT become a property of `window` (unlike `var`). main.js's
+// getSelectedConvention() checks `window.RTFConventions` to decide whether to use the
+// new parseBlockToQuestionV2 pipeline -- without this explicit assignment, that check
+// was always false, so main.js was silently falling back to the old parseBlockToQuestion
+// (and the explanation-label checkbox UI never rendered either) no matter what fixes
+// were made to the V2 logic itself, since V2 was never actually being called.
+window.RTFConventions = RTFConventions;
 
 RTFConventions.PDF_DEFAULT_CONVENTION = {
   optionLinePattern: /^[A-J]\s*[.\u3001)]/,
@@ -42,7 +50,7 @@ RTFConventions.assembleQuestionText = function (lines, convention) {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
-    if (convention.optionLinePattern.test(line)) break;
+    if (questionParts.length > 0 && convention.optionLinePattern.test(line)) break;
     if (isHexFingerprintLine(line)) continue;
     if (convention.skipLinePatterns.some((p) => p.test(line))) continue;
 
@@ -171,14 +179,14 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
 // a bare "Q1" delimiter and the question stem, rather than "\par". parsers.js's stripRTF
 // only converts \par/\pard to a real newline; \line falls through to the generic
 // control-word stripper with NO replacement, silently gluing "Q1" directly onto the next
-// word with zero separator (e.g. "Q1A recent zero-day vulnerability..."). Normalize \line
+// word with zero separator (e.g. "Q1A recent zero-day vulnerability...").  Normalize \line
 // to \par before calling the original stripRTF so it gets converted to a real newline.
 // NOTE: this remains as a fallback path -- see the rtf.js-based extraction below, which
 // is used instead whenever the library successfully loads.
 (function () {
   const originalStripRTF = Parsers.stripRTF;
   Parsers.stripRTF = function (rtfRaw) {
-    const normalized = rtfRaw.replace(/\\line\b\s?/g, "\\par ");
+    const normalized = rtfRaw.replace(/\line\b\s?/g, "\par ");
     return originalStripRTF(normalized);
   };
 })();
