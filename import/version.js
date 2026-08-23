@@ -4,12 +4,12 @@
 // broken new version.
 //
 // Versioning: MAJOR.MINOR.PATCH
-// - PATCH: bug fixes (e.g. the \line normalization fix)
+// - PATCH: bug fixes (e.g. the missing 題號 fix, issue #14)
 // - MINOR: new features / behavior changes (e.g. RTF convention support, rtf.js-based
 //   extraction)
 // - MAJOR: breaking changes to existing data/behavior
 // Bump this string in every commit that changes import/*.js.
-const IMPORT_TOOL_VERSION = "1.1.0";
+const IMPORT_TOOL_VERSION = "1.1.1";
 
 (function () {
   const footer = document.createElement("div");
