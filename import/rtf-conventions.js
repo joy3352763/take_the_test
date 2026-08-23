@@ -9,14 +9,6 @@
 // derived from that same regex rather than duplicated as a separate config field.
 
 const RTFConventions = {};
-// IMPORTANT (issue #16 root cause): a top-level `const`/`let` declaration in a classic
-// <script> does NOT become a property of `window` (unlike `var`). main.js's
-// getSelectedConvention() checks `window.RTFConventions` to decide whether to use the
-// new parseBlockToQuestionV2 pipeline -- without this explicit assignment, that check
-// was always false, so main.js was silently falling back to the old parseBlockToQuestion
-// (and the explanation-label checkbox UI never rendered either) no matter what fixes
-// were made to the V2 logic itself, since V2 was never actually being called.
-window.RTFConventions = RTFConventions;
 
 RTFConventions.PDF_DEFAULT_CONVENTION = {
   optionLinePattern: /^[A-J]\s*[.\u3001)]/,
@@ -50,7 +42,7 @@ RTFConventions.assembleQuestionText = function (lines, convention) {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
-    if (questionParts.length > 0 && convention.optionLinePattern.test(line)) break;
+    if (convention.optionLinePattern.test(line)) break;
     if (isHexFingerprintLine(line)) continue;
     if (convention.skipLinePatterns.some((p) => p.test(line))) continue;
 
