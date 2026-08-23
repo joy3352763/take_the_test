@@ -9,6 +9,14 @@
 // derived from that same regex rather than duplicated as a separate config field.
 
 const RTFConventions = {};
+// IMPORTANT (issue #16 root cause): a top-level `const`/`let` declaration in a classic
+// <script> does NOT become a property of `window` (unlike `var`). main.js's
+// getSelectedConvention() checks `window.RTFConventions` to decide whether to use the
+// new parseBlockToQuestionV2 pipeline -- without this explicit assignment, that check
+// was always false, so main.js was silently falling back to the old parseBlockToQuestion
+// (and the explanation-label checkbox UI never rendered either) no matter what fixes
+// were made to the V2 logic itself, since V2 was never actually being called.
+window.RTFConventions = RTFConventions;
 
 RTFConventions.PDF_DEFAULT_CONVENTION = {
   optionLinePattern: /^[A-J]\s*[.\u3001)]/,
@@ -35,14 +43,6 @@ function isHexFingerprintLine(line) {
 }
 RTFConventions.isHexFingerprintLine = isHexFingerprintLine;
 
-// Fixes issue #16: a single line was allowed to end the question-text collection loop
-// (via optionLinePattern) even when NO question text had been collected yet at all --
-// e.g. if the very first line after the delimiter is spuriously flagged as an "option"
-// line (rtf.js rendering artifact, or unusual source formatting), the entire question
-// stem would be silently discarded, leaving only the delimiter itself as the question.
-// A question's first line can never legitimately be an option (options always come
-// after some stem text), so the break condition now requires at least one line already
-// collected before it's allowed to trigger.
 RTFConventions.assembleQuestionText = function (lines, convention) {
   const questionParts = [];
   let hasImage = false;
