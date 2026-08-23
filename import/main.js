@@ -57,8 +57,55 @@ document.getElementById("analyzeBtn").addEventListener("click", async () => {
   const noiseCandidates = totalPages > 0 ? Parsers.detectNoiseCandidates(mergedFreq, totalPages) : [];
   renderNoiseCandidates(noiseCandidates);
 
+  if (window.RTFConventions) {
+    renderExplanationLabelCandidates(RTFConventions.detectExplanationLabelCandidates(combinedText));
+  }
+
   document.getElementById("step2").style.display = "block";
 });
+
+function ensureExplanationContainer() {
+  let container = document.getElementById("explanationLabelOptions");
+  if (!container) {
+    const heading = document.createElement("h3");
+    heading.textContent = "\u8a73\u89e3/Explanation \u6a19\u8a18\u683c\u5f0f\uff08\u53ef\u591a\u9078\uff09";
+    container = document.createElement("div");
+    container.id = "explanationLabelOptions";
+    const step2 = document.getElementById("step2");
+    step2.appendChild(heading);
+    step2.appendChild(container);
+  }
+  return container;
+}
+
+function renderExplanationLabelCandidates(candidates) {
+  const container = ensureExplanationContainer();
+  container.innerHTML = "";
+  candidates.forEach((c) => {
+    const label = document.createElement("label");
+    label.style.display = "block";
+    const checked = c.count > 0 ? "checked" : "";
+    label.innerHTML = '<input type="checkbox" name="explanationLabel" value="' + c.pattern + '" ' + checked + "> " + c.label + " (\u547d\u4e2d " + c.count + " \u6b21)";
+    container.appendChild(label);
+  });
+}
+
+function getSelectedExplanationLabels() {
+  const checked = document.querySelectorAll('input[name="explanationLabel"]:checked');
+  return Array.from(checked).map((el) => el.value);
+}
+
+// Convention (exporter layout convention) is derived from whichever delimiter candidate
+// the user selected, rather than a separate selector -- see issue #12 for rationale.
+function getSelectedConvention() {
+  if (!window.RTFConventions) return null;
+  const container = document.getElementById("delimiterOptions");
+  const selected = container.querySelector('input[name="delimiter"]:checked');
+  if (selected && selected.value === "q_short") {
+    return RTFConventions.EXAM_FORMATTER_RTF_CONVENTION;
+  }
+  return RTFConventions.PDF_DEFAULT_CONVENTION;
+}
 
 function renderDelimiterCandidates(candidates) {
   const container = document.getElementById("delimiterOptions");
@@ -160,13 +207,17 @@ document.getElementById("confirmConvertBtn").addEventListener("click", async () 
   const delimiterRegex = getSelectedDelimiterRegex();
   const answerLabels = getSelectedAnswerLabels();
   const noiseStrings = getSelectedNoiseStrings();
+  const explanationLabels = window.RTFConventions ? getSelectedExplanationLabels() : [];
+  const convention = getSelectedConvention();
   let textQuestions = [];
 
   for (const src of textSources) {
     const cleanedText = noiseStrings.length ? Parsers.removeNoiseStrings(src.fullText, noiseStrings) : src.fullText;
     const blocks = Parsers.splitByDelimiter(cleanedText, delimiterRegex);
     for (let i = 0; i < blocks.length; i++) {
-      const q = Parsers.parseBlockToQuestion(blocks[i].text, src.filename, i, answerLabels);
+      const q = convention
+        ? Parsers.parseBlockToQuestionV2(blocks[i].text, src.filename, i, answerLabels, explanationLabels, convention, delimiterRegex)
+        : Parsers.parseBlockToQuestion(blocks[i].text, src.filename, i, answerLabels);
 
       if (src.pageBoundaries && src.pageBoundaries.length) {
         const overlapping = src.pageBoundaries.filter(
@@ -226,8 +277,13 @@ document.getElementById("downloadZipBtn").addEventListener("click", () => {
 });
 
 window.getAllQuestions = () => allQuestions;
+window.getTextSources = () => textSources;
 (function () {
-  const s = document.createElement("script");
-  s.src = "scriptjs-export.js";
-  document.body.appendChild(s);
+  const s1 = document.createElement("script");
+  s1.src = "scriptjs-export.js";
+  document.body.appendChild(s1);
+
+  const s2 = document.createElement("script");
+  s2.src = "rtf-conventions.js";
+  document.body.appendChild(s2);
 })();
