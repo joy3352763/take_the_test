@@ -35,6 +35,14 @@ function isHexFingerprintLine(line) {
 }
 RTFConventions.isHexFingerprintLine = isHexFingerprintLine;
 
+// Fixes issue #16: a single line was allowed to end the question-text collection loop
+// (via optionLinePattern) even when NO question text had been collected yet at all --
+// e.g. if the very first line after the delimiter is spuriously flagged as an "option"
+// line (rtf.js rendering artifact, or unusual source formatting), the entire question
+// stem would be silently discarded, leaving only the delimiter itself as the question.
+// A question's first line can never legitimately be an option (options always come
+// after some stem text), so the break condition now requires at least one line already
+// collected before it's allowed to trigger.
 RTFConventions.assembleQuestionText = function (lines, convention) {
   const questionParts = [];
   let hasImage = false;
@@ -42,7 +50,7 @@ RTFConventions.assembleQuestionText = function (lines, convention) {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
-    if (convention.optionLinePattern.test(line)) break;
+    if (questionParts.length > 0 && convention.optionLinePattern.test(line)) break;
     if (isHexFingerprintLine(line)) continue;
     if (convention.skipLinePatterns.some((p) => p.test(line))) continue;
 
