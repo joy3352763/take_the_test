@@ -95,8 +95,6 @@ function getSelectedExplanationLabels() {
   return Array.from(checked).map((el) => el.value);
 }
 
-// Convention (exporter layout convention) is derived from whichever delimiter candidate
-// the user selected, rather than a separate selector -- see issue #12 for rationale.
 function getSelectedConvention() {
   if (!window.RTFConventions) return null;
   const container = document.getElementById("delimiterOptions");
@@ -286,4 +284,8 @@ window.getTextSources = () => textSources;
   const s2 = document.createElement("script");
   s2.src = "rtf-conventions.js";
   document.body.appendChild(s2);
+
+  const s3 = document.createElement("script");
+  s3.src = "version.js";
+  document.body.appendChild(s3);
 })();
