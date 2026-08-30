@@ -1,9 +1,7 @@
 // review.js — 覆核編輯器骨架 (issue #23 方案 A)
 //
-// 目前狀態：骨架/MVP，依賴 db.js 定義的 IndexedDB schema。
-// main.js 尚未改成直接寫入這個 DB（見 issue #23 checklist），所以在那之前，
-// 這個頁面主要用 DB.putQuestions()/DB.putImage() 提供的手動測試路徑或
-// 之後接上的匯入流程來填充資料 —— UI/狀態機/匯出邏輯已經是可運作的完整流程。
+// 目前狀態：main.js 已透過 db-bridge.js 寫入資料（見 #23/#24），這裡負責覆核 UI、
+// 狀態機寫回、以及批次匯出。
 
 const activeObjectUrls = [];
 
@@ -66,6 +64,13 @@ async function renderQuestionCard(q) {
   title.className = "review-card-title";
   title.textContent = `[${q.delimiter_label || q.id}] ${q.question || "(無題幹文字)"}`;
   card.appendChild(title);
+
+  // issue #24 追踪討論：需要一個明顯的視覺標記分辨「解析時有旗標」跟「無旗標、已算有信心」
+  // 的題目，讓覆核者在逐題看的情況下也能快速抓到真正該注意的題目。
+  const badge = document.createElement("span");
+  badge.className = q.needs_review ? "review-badge review-badge-flagged" : "review-badge review-badge-clean";
+  badge.textContent = q.needs_review ? "⚠ 解析時有旗標" : "✓ 解析時無旗標";
+  card.appendChild(badge);
 
   if (q._errors && q._errors.length) {
     const err = document.createElement("div");
@@ -179,6 +184,17 @@ function wirePagerControls() {
     await DB.setBatchSize(currentBatchSize);
     currentOffset = 0;
     loadCurrentPage();
+  });
+
+  // issue #24 追踪討論：解決「627 題全部變成 pending，混雜著解析時無旗標的題目」的問題。
+  document.getElementById("autoApproveBtn").addEventListener("click", async () => {
+    const statusEl = document.getElementById("autoApproveStatus");
+    statusEl.textContent = "處理中…";
+    const result = await DB.autoApproveConfidentPending();
+    statusEl.textContent = `已自動核准 ${result.approved} 題（解析時無旗標），剩餘 ${result.remainingPending} 題待人工確認。`;
+    currentOffset = 0;
+    await refreshSummary();
+    await loadCurrentPage();
   });
 }
 

@@ -2,11 +2,11 @@
 //
 // 設計前提(見 issue #23 留言的定案):
 // - import.html 解析完題目後應「直接寫入」這裡定義的 IndexedDB,不再先落地中間 zip。
-//   本檔案目前只由 review.js 使用；main.js 改寫成呼叫 DB.putQuestions()/DB.putImage()
-//   是另一張票(#23 checklist 第 2 項),尚未實作，故此處的資料目前需靠下方
-//   DB.importFromLegacyZip() 這個過渡用的手動匯入功能填充（見檔尾說明）。
+//   main.js 透過 db-bridge.js 寫入(見 #23/#24)。
 // - 圖片一律存 Blob，不用 base64 data URI，避免字串放大 33% 的額外記憶體成本。
 // - 審核狀態四態：pending / approved / needs_fix / rejected（issue #23）。
+//   注意：pending 不等於「有問題」——解析時 needs_review=false 的題目一樣先進 pending，
+//   只是代表「還沒有人確認過」，與 needs_review 這個「解析時是否有旗標」是兩件独立的事。
 
 const DB_NAME = "TakeTheTestImportDB";
 const DB_VERSION = 1;
@@ -81,7 +81,8 @@ DB.setBatchSize = function (n) {
 
 // ---------- questions ----------
 
-// 供 main.js 未來寫入用：一次寫入一批解析完的題目（每題需已帶 reviewStatus: "pending"）
+// 供 main.js（透過 db-bridge.js）寫入用：一次寫入一批解析完的題目
+// （每題需已帶 reviewStatus: "pending"）
 DB.putQuestions = async function (questions) {
   const db = await DB.open();
   const store = tx(db, [STORE_QUESTIONS], "readwrite").objectStore(STORE_QUESTIONS);
@@ -134,6 +135,31 @@ DB.countAllByStatus = async function () {
   const statuses = ["pending", "approved", "needs_fix", "rejected"];
   const counts = await Promise.all(statuses.map((s) => DB.countByStatus(s)));
   return Object.fromEntries(statuses.map((s, i) => [s, counts[i]]));
+};
+
+// 實測發現（issue #24 追踪討論）：RTF 匯入後 pending 佇列會把「needs_review=false（解析時
+// 沒有旗標，理論上是有信心解析成功）」跟「needs_review=true（真的需要人工確認）」的題目
+// 混在一起，覆核者要逐題點過幾百題確信度已經很高的題目，體驟很差。
+// 這個函式批次把 pending + needs_review!==true 的題目直接標成 approved，備註留下軌跡，
+// 讓覆核者只需要專心處理真正有旗標的題目。不影響狀態機定義本身（pending/approved/
+// needs_fix/rejected 四態不変），只是提供一個有明確軌跡的批次操作捷徑。
+DB.autoApproveConfidentPending = async function () {
+  const db = await DB.open();
+  const store = tx(db, [STORE_QUESTIONS], "readwrite").objectStore(STORE_QUESTIONS);
+  const index = store.index("reviewStatus");
+  const pending = await promisifyRequest(index.getAll("pending"));
+  const toApprove = pending.filter((q) => !q.needs_review);
+
+  await Promise.all(
+    toApprove.map((q) => {
+      q.reviewStatus = "approved";
+      q.reviewNote = q.reviewNote || "自動核准（解析時無 needs_review 旗標）";
+      q.reviewedAt = new Date().toISOString();
+      return promisifyRequest(store.put(q));
+    })
+  );
+
+  return { approved: toApprove.length, remainingPending: pending.length - toApprove.length };
 };
 
 // ---------- images ----------
