@@ -274,7 +274,8 @@ function renderSummary(questions, reviewList) {
     const li = document.createElement("li");
     const text = q.question ? q.question.slice(0, 40) : "(DOCX raw HTML)";
     const extra = q._errors ? "錯誤: " + q._errors.join(", ") : q.question_image ? "(含整頁截圖,需確認/裁切)" : "";
-    li.textContent = "[" + (q.id || (q.source && q.source.file)) + "] " + text + "... " + extra;
+    const label = q.delimiter_label || q.id || (q.source && q.source.file);
+    li.textContent = "[" + label + "] " + text + "... " + extra;
     listEl.appendChild(li);
   });
 }
