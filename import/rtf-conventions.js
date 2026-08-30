@@ -136,11 +136,29 @@ RTFConventions.detectExplanationLabelCandidates = function (text) {
   });
 };
 
+// Extracts the exact text the chosen delimiter regex matched at the start of a block
+// (e.g. "Q3", "QUESTION 12") so downstream review-list UI can show a label that matches
+// what's actually visible in the source file. Without this, the review list previously
+// showed a synthetic 0-based array index (filename_2) that looks like "question 2" but
+// is really the 3rd block / "Q3" -- confusing for anyone trying to locate the question
+// in the original RTF.
+RTFConventions.extractDelimiterLabel = function (blockText, delimiterRegex) {
+  if (!delimiterRegex) return null;
+  const flatFlags = delimiterRegex.flags.replace(/g/g, "");
+  const startRe = new RegExp(delimiterRegex.source, flatFlags);
+  const m = blockText.match(startRe);
+  if (m && m.index === 0) {
+    return m[0].trim();
+  }
+  return null;
+};
+
 Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabels, explanationLabels, convention, delimiterRegex) {
   convention = convention || RTFConventions.PDF_DEFAULT_CONVENTION;
   const labels = answerLabels && answerLabels.length ? answerLabels : convention.answerLabels;
   const explLabels = explanationLabels && explanationLabels.length ? explanationLabels : convention.explanationLabels;
 
+  const delimiterLabel = RTFConventions.extractDelimiterLabel(blockText, delimiterRegex);
   if (delimiterRegex) {
     const flatFlags = delimiterRegex.flags.replace(/g/g, "");
     const startRe = new RegExp(delimiterRegex.source, flatFlags);
@@ -195,6 +213,7 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
 
   return {
     id: filename.replace(/\W+/g, "_") + "_" + idx,
+    delimiter_label: delimiterLabel,
     question,
     question_image: null,
     type: answers.length > 1 ? "multiple" : "single",
