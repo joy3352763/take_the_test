@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>題庫覆核編輯器 - take_the_test</title>
+<script src="vendor/jszip.min.js"></script>
+<style>
+  body { font-family: sans-serif; margin: 16px; max-width: 900px; }
+  #toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  #summaryCounts { font-weight: bold; }
+  .review-card {
+    border: 1px solid #ccc; border-radius: 6px; padding: 12px; margin-bottom: 12px;
+  }
+  .review-card-done { opacity: 0.5; }
+  .review-card-title { font-weight: bold; margin-bottom: 6px; }
+  .review-card-errors { color: #b00; font-size: 0.9em; margin-bottom: 6px; }
+  .review-card-options { margin: 6px 0; padding-left: 20px; }
+  .review-card-images { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+  .review-img-wrap { text-align: center; }
+  .review-img-caption { font-size: 0.8em; color: #555; }
+  .review-img-thumb { max-width: 160px; max-height: 160px; display: block; border: 1px solid #ddd; }
+  .review-img-missing { color: #b00; font-size: 0.85em; }
+  .review-card-explanation { font-size: 0.9em; color: #333; margin-top: 6px; }
+  .review-card-note { width: 100%; margin: 8px 0; box-sizing: border-box; }
+  .review-card-actions { display: flex; gap: 8px; }
+  .review-btn { padding: 4px 10px; cursor: pointer; }
+  .review-btn-approved { background: #dff0d8; }
+  .review-btn-needs_fix { background: #fcf8e3; }
+  .review-btn-rejected { background: #f2dede; }
+  .review-empty { color: #777; }
+  #pager { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
+  #exportStatus { margin-top: 8px; color: #555; }
+</style>
+</head>
+<body>
+  <h1>題庫覆核編輯器</h1>
+  <p>
+    骨架版本 — 依 issue #23 定案的方案 A：與匯入工具共用同一個 IndexedDB，
+    核准/退回狀態即時寫回，全部核准完成後才依批次匯出 CSV+zip。
+  </p>
+
+  <div id="toolbar">
+    <span id="summaryCounts">載入中...</span>
+    <label>
+      篩選狀態:
+      <select id="statusFilterSelect">
+        <option value="pending" selected>待審 (pending)</option>
+        <option value="approved">已核准 (approved)</option>
+        <option value="needs_fix">需修正 (needs_fix)</option>
+        <option value="rejected">已退回 (rejected)</option>
+      </select>
+    </label>
+    <label>
+      批次大小:
+      <input type="number" id="batchSizeInput" min="1" value="150" style="width: 70px;">
+    </label>
+    <button id="applyBatchSizeBtn">套用批次大小</button>
+  </div>
+
+  <div id="pager">
+    <button id="prevPageBtn">上一批</button>
+    <span id="pageInfo"></span>
+    <button id="nextPageBtn">下一批</button>
+  </div>
+
+  <div id="reviewCardList"></div>
+
+  <hr>
+  <h2>匯出</h2>
+  <p>只會匯出狀態為「已核准」的題目，依批次大小各自產生一個 <code>batch_NNN.zip</code>（CSV + 對應圖片）。</p>
+  <button id="exportApprovedBtn">匯出已核准題目</button>
+  <div id="exportStatus"></div>
+
+  <script src="db.js"></script>
+  <script src="review.js"></script>
+</body>
+</html>
