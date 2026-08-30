@@ -403,8 +403,8 @@ Parsers.extractRawText = async function (file, ext) {
   }
   if (ext === "rtf") {
     const raw = await file.text();
-    const { plainText } = Parsers.stripRTF(raw);
-    return { fullText: plainText, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name };
+    const { plainText, images } = Parsers.stripRTF(raw);
+    return { fullText: plainText, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name, images };
   }
   const text = await file.text();
   return { fullText: text, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name };
