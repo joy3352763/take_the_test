@@ -152,9 +152,6 @@ async function loadCurrentPage() {
     listEl.innerHTML = `<p class="review-empty">此篩選條件下目前沒有題目（狀態: ${currentStatusFilter}）。</p>`;
   }
 
-  // 注意：這裡採用「分頁載入」而非真正的可視範圍虛擬滾動，作為骨架先滿足
-  // 「一次只載入一批，不把全部題目塞進 DOM」的核心要求（issue #23 第2點）。
-  // 若批次仍偏大導致單頁渲染卡頓，可再疊加 IntersectionObserver 做視窗內虛擬化。
   for (const q of questions) {
     const card = await renderQuestionCard(q);
     listEl.appendChild(card);
@@ -186,7 +183,6 @@ function wirePagerControls() {
     loadCurrentPage();
   });
 
-  // issue #24 追踪討論：解決「627 題全部變成 pending，混雜著解析時無旗標的題目」的問題。
   document.getElementById("autoApproveBtn").addEventListener("click", async () => {
     const statusEl = document.getElementById("autoApproveStatus");
     statusEl.textContent = "處理中…";
@@ -197,8 +193,6 @@ function wirePagerControls() {
     await loadCurrentPage();
   });
 }
-
-// ---------- 匯出（只拉 approved，依批次各自 generateAsync，issue #23 第2點） ----------
 
 function answersToScriptFormat(answers) {
   return (answers || [])
@@ -236,7 +230,9 @@ function rowsToCSV(rows) {
   return "\uFEFF" + lines.join("\r\n");
 }
 
-// 把一批已核准的題目 + 對應圖片打包成一個 zip（每批各自 generateAsync，控制記憶體峰值）
+// 修正：題型必須固定寫「選擇題」，不能寫「单選題」/「多選題」。script.js 的 isMultiSelect
+// 判斷方式是 `question.題型 === '選擇題' && question.答案.toString().includes('.')`，
+// 完全字串比對，寬到不同的字串就會被強制當成單選(radio)，導致多選題選不到其他選項。
 async function exportBatchToZip(batch, batchIndex) {
   const zip = new JSZip();
   const rows = [];
@@ -245,7 +241,7 @@ async function exportBatchToZip(batch, batchIndex) {
   for (const q of batch) {
     const row = {
       題號: q.delimiter_label || q.id,
-      題型: (q.answers || []).length > 1 ? "多選題" : "單選題",
+      題型: "選擇題",
       題目: q.question,
       答案: answersToScriptFormat(q.answers),
       解析: q.explanation || "",
@@ -287,13 +283,10 @@ async function exportApproved() {
 
   for (let i = 0; i < batches.length; i++) {
     statusEl.textContent = `匯出中… 第 ${i + 1}/${batches.length} 批（${batches[i].length} 題）`;
-    // 逐批 await，確保上一批的 zip 產出/下載完成、記憶體有機會回收後才開始下一批
     await exportBatchToZip(batches[i], i + 1);
   }
   statusEl.textContent = `匯出完成，共 ${batches.length} 批，總計 ${batches.reduce((s, b) => s + b.length, 0)} 題。`;
 }
-
-// ---------- 初始化 ----------
 
 async function init() {
   currentBatchSize = await DB.getBatchSize();
