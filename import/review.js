@@ -65,8 +65,6 @@ async function renderQuestionCard(q) {
   title.textContent = `[${q.delimiter_label || q.id}] ${q.question || "(無題幹文字)"}`;
   card.appendChild(title);
 
-  // issue #24 追踪討論：需要一個明顯的視覺標記分辨「解析時有旗標」跟「無旗標、已算有信心」
-  // 的題目，讓覆核者在逐題看的情況下也能快速抓到真正該注意的題目。
   const badge = document.createElement("span");
   badge.className = q.needs_review ? "review-badge review-badge-flagged" : "review-badge review-badge-clean";
   badge.textContent = q.needs_review ? "⚠ 解析時有旗標" : "✓ 解析時無旗標";
@@ -230,24 +228,27 @@ function rowsToCSV(rows) {
   return "\uFEFF" + lines.join("\r\n");
 }
 
-// 修正：題型必須固定寫「選擇題」，不能寫「单選題」/「多選題」。script.js 的 isMultiSelect
-// 判斷方式是 `question.題型 === '選擇題' && question.答案.toString().includes('.')`，
-// 完全字串比對，寬到不同的字串就會被強制當成單選(radio)，導致多選題選不到其他選項。
-async function exportBatchToZip(batch, batchIndex) {
+// 修正：題型必須固定寫「選擇題」(見 PR #29)。這裡又修正一個同类型的問題：題號不能直接拿
+// delimiter_label(例如 "Q259")、也不能拿 q.id 這種非純數字字串。script.js 的範圍選題是靠
+// `parseInt(q.題號)` 比大小，非純數字字串會被 parseInt 變成 NaN，範圍篩選永遠邀不到任何題目。
+// 回到舊 `scriptjs-export.js`(issue #14)的約定：題號是匯出時重新指定的連續整數，與原始
+// 檔案的分隔符文字完全無關。delimiter_label 仍留給覆核清單顯示用，不再拿來當題號。
+async function exportBatchToZip(batch, batchIndex, startNumber) {
   const zip = new JSZip();
   const rows = [];
   const imgFields = ["img_stem", "img_optA", "img_optB", "img_optC", "img_optD", "img_explain"];
 
-  for (const q of batch) {
+  for (let i = 0; i < batch.length; i++) {
+    const q = batch[i];
     const row = {
-      題號: q.delimiter_label || q.id,
+      題號: startNumber + i,
       題型: "選擇題",
       題目: q.question,
       答案: answersToScriptFormat(q.answers),
       解析: q.explanation || "",
       待確認: "",
     };
-    (q.options || []).forEach((opt, i) => (row["選項" + (i + 1)] = opt));
+    (q.options || []).forEach((opt, j) => (row["選項" + (j + 1)] = opt));
 
     for (const field of imgFields) {
       const path = q[field];
@@ -281,9 +282,11 @@ async function exportApproved() {
     return;
   }
 
+  let nextNumber = 1;
   for (let i = 0; i < batches.length; i++) {
     statusEl.textContent = `匯出中… 第 ${i + 1}/${batches.length} 批（${batches[i].length} 題）`;
-    await exportBatchToZip(batches[i], i + 1);
+    await exportBatchToZip(batches[i], i + 1, nextNumber);
+    nextNumber += batches[i].length;
   }
   statusEl.textContent = `匯出完成，共 ${batches.length} 批，總計 ${batches.reduce((s, b) => s + b.length, 0)} 題。`;
 }
