@@ -205,11 +205,6 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
     source: { file: filename, block: idx },
     needs_review: needsReview,
     _hasImage: hasImage,
-    // Raw \pict indexes per field, resolved against the RTF source's `images[]` array
-    // (produced by Parsers.extractPictImages / stripRTF) later in the pipeline. Kept
-    // separate from question_image/option_images (which are single-value slots used by
-    // the existing PDF-screenshot path) until core.js/scriptjs-export.js are updated to
-    // consume multi-image fields (issue #20).
     stem_image_indexes: stemImageIndexes,
     option_image_indexes: optionImageIndexes,
     explanation_image_indexes: explanationImageIndexes,
@@ -232,10 +227,20 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
 // control-word stripper with NO replacement, silently gluing "Q1" directly onto the next
 // word with zero separator (e.g. "Q1A recent zero-day vulnerability...").  Normalize \line
 // to \par before calling the original stripRTF so it gets converted to a real newline.
+//
+// BUG FIX (found while diagnosing a *different* gluing report -- issue #20 comment):
+// the regex/replacement below previously used unescaped "\line"/"\par" as JS source text.
+// "\l" and "\p" are not recognized JS escape sequences, so the engine silently drops the
+// backslash: the regex became /line\b\s?/ (matching the literal substring "line"
+// anywhere) and the replacement became the literal string "par ". This corrupted any
+// ordinary word containing "line" as a substring -- "baseline"->"basepar",
+// "guideline"->"guidepar", "online"->"onpar", "timeline"->"timepar" -- which is exactly
+// the kind of vocabulary that shows up constantly in security exam content. Properly
+// escaping both sides fixes this without changing the intended \line-to-\par behavior.
 (function () {
   const originalStripRTF = Parsers.stripRTF;
   Parsers.stripRTF = function (rtfRaw) {
-    const normalized = rtfRaw.replace(/\line\b\s?/g, "\par ");
+    const normalized = rtfRaw.replace(/\\line\b\s?/g, "\\par ");
     return originalStripRTF(normalized);
   };
 })();
