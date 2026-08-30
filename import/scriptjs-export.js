@@ -19,20 +19,34 @@ ScriptJSExport.answersToScriptFormat = function (answers) {
     .join(".");
 };
 
+// img_optA..img_optD column letters, matching the rtf-image-import-spec.md schema (issue #20).
+// Options beyond D (E-J are technically supported by parseBlockToQuestion's A-J pattern)
+// do not get a dedicated image column -- out of scope for the spec, same as upstream.
+ScriptJSExport.OPTION_IMAGE_LETTERS = ["A", "B", "C", "D"];
+
 // Assigns a sequential 1-based question number (題號) to every exported row, so
 // script.js's "range" exam-scope mode -- which filters on parseInt(q.題號) -- has
 // something to filter on. The import tool's intermediate schema never carried a question
 // number (issue #14: manually-built CSV/XLSX question banks include 題號, but anything
 // produced by parseBlockToQuestion(V2) did not), so it is generated fresh here.
+//
+// NOTE (issue #20): previously any question with `needs_review` set (which includes every
+// image-bearing RTF question, since parseBlockToQuestionV2 forces needs_review when
+// hasImage is true) was fully excluded from the exported CSV -- image questions would
+// never reach the live quiz at all. That skip condition now only covers structurally
+// incomplete questions (missing options/answers); needs_review is preserved as a column
+// so a reviewer can still filter for "double-check before trusting" rows without them
+// being silently dropped.
 ScriptJSExport.toRows = function (questions) {
   const rows = [];
   const skipped = [];
   let questionNumber = 0;
   (questions || []).forEach((q) => {
-    if (q.needs_review || !q.options || q.options.length === 0 || !q.answers || q.answers.length === 0) {
+    if (!q.options || q.options.length === 0 || !q.answers || q.answers.length === 0) {
       skipped.push(q);
       return;
     }
+
     questionNumber++;
     const row = {
       題號: questionNumber,
@@ -44,6 +58,20 @@ ScriptJSExport.toRows = function (questions) {
       row["選項" + (i + 1)] = opt;
     });
     if (q.explanation) row.解析 = q.explanation;
+
+    const stemImages = (q.img_stem_paths || []).filter(Boolean);
+    if (stemImages.length) row.img_stem = stemImages.join(";");
+
+    ScriptJSExport.OPTION_IMAGE_LETTERS.forEach((letter, i) => {
+      const optionImages = ((q.img_option_paths && q.img_option_paths[i]) || []).filter(Boolean);
+      if (optionImages.length) row["img_opt" + letter] = optionImages.join(";");
+    });
+
+    const explanationImages = (q.img_explanation_paths || []).filter(Boolean);
+    if (explanationImages.length) row.img_explain = explanationImages.join(";");
+
+    if (q.needs_review) row.待確認 = "Y";
+
     rows.push(row);
   });
   return { rows, skipped };
@@ -58,9 +86,21 @@ ScriptJSExport.rowsToCSV = function (rows) {
   const optionKeys = [...headerSet]
     .filter((k) => /^選項\d+$/.test(k))
     .sort((a, b) => parseInt(a.replace("選項", ""), 10) - parseInt(b.replace("選項", ""), 10));
-  const knownKeys = ["題號", "題型", "題目", ...optionKeys, "答案"];
+  const imgOptionKeys = ScriptJSExport.OPTION_IMAGE_LETTERS.map((letter) => "img_opt" + letter);
+  const knownKeys = [
+    "題號",
+    "題型",
+    "題目",
+    ...optionKeys,
+    "答案",
+    "解析",
+    "img_stem",
+    ...imgOptionKeys,
+    "img_explain",
+    "待確認",
+  ];
   const restKeys = [...headerSet].filter((k) => !knownKeys.includes(k));
-  const headers = [...knownKeys, ...restKeys];
+  const headers = [...knownKeys.filter((k) => headerSet.has(k)), ...restKeys];
 
   function escapeCell(val) {
     const s = val === undefined || val === null ? "" : String(val);
@@ -81,7 +121,7 @@ ScriptJSExport.downloadCSV = function (questions, filename) {
   filename = filename || "questions_for_script_js.csv";
   const { rows, skipped } = ScriptJSExport.toRows(questions);
   if (skipped.length) {
-    console.warn(skipped.length + " question(s) skipped (needs_review or missing options/answers), not written to CSV:", skipped);
+    console.warn(skipped.length + " question(s) skipped (missing options/answers), not written to CSV:", skipped);
   }
   const csv = ScriptJSExport.rowsToCSV(rows);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
