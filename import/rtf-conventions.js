@@ -43,9 +43,34 @@ function isHexFingerprintLine(line) {
 }
 RTFConventions.isHexFingerprintLine = isHexFingerprintLine;
 
+// Indexed image placeholders ("[IMAGE:0]", "[IMAGE:1]", ...) produced by
+// Parsers.extractPictImages() (see parsers.js, issue #20). These survive block-splitting
+// and land in whichever line they originally occupied, so field attribution (stem vs.
+// option vs. explanation) falls out naturally from *where in the line-scanning process*
+// a token is encountered -- no separate "image position in the original RTF" coordinate
+// system is needed.
+const IMAGE_TOKEN_REGEX = /\[IMAGE:(\d+)\]/g;
+
+function extractImageIndexesFromLine(line) {
+  const indexes = [];
+  const re = new RegExp(IMAGE_TOKEN_REGEX.source, "g");
+  let m;
+  while ((m = re.exec(line)) !== null) {
+    indexes.push(parseInt(m[1], 10));
+  }
+  return indexes;
+}
+RTFConventions.extractImageIndexesFromLine = extractImageIndexesFromLine;
+
+function stripImageTokens(line) {
+  return line.replace(new RegExp(IMAGE_TOKEN_REGEX.source, "g"), " ").trim();
+}
+RTFConventions.stripImageTokens = stripImageTokens;
+
 RTFConventions.assembleQuestionText = function (lines, convention) {
   const questionParts = [];
   let hasImage = false;
+  const imageIndexes = [];
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -53,6 +78,15 @@ RTFConventions.assembleQuestionText = function (lines, convention) {
     if (questionParts.length > 0 && convention.optionLinePattern.test(line)) break;
     if (isHexFingerprintLine(line)) continue;
     if (convention.skipLinePatterns.some((p) => p.test(line))) continue;
+
+    const tokenIndexes = extractImageIndexesFromLine(line);
+    if (tokenIndexes.length) {
+      hasImage = true;
+      imageIndexes.push(...tokenIndexes);
+      const cleaned = stripImageTokens(line);
+      if (cleaned) questionParts.push(cleaned);
+      continue;
+    }
 
     if (convention.imagePlaceholderToken && line.includes(convention.imagePlaceholderToken)) {
       hasImage = true;
@@ -63,25 +97,29 @@ RTFConventions.assembleQuestionText = function (lines, convention) {
     questionParts.push(line);
   }
 
-  return { text: questionParts.join(" ").trim(), hasImage };
+  return { text: questionParts.join(" ").trim(), hasImage, imageIndexes };
 };
 
 RTFConventions.findExplanation = function (bodyLines, escapedLabels) {
-  if (!escapedLabels || !escapedLabels.length) return "";
+  if (!escapedLabels || !escapedLabels.length) return { text: "", imageIndexes: [] };
   const labelRegex = new RegExp("^(?:" + escapedLabels.join("|") + ")\\s*[:\uff1a]?\\s*(.*)$", "i");
 
   for (let i = 0; i < bodyLines.length; i++) {
     const m = bodyLines[i].match(labelRegex);
     if (!m) continue;
-    const collected = [(m[1] || "").trim()];
+    const imageIndexes = [];
+    const firstRest = (m[1] || "").trim();
+    imageIndexes.push(...extractImageIndexesFromLine(firstRest));
+    const collected = [stripImageTokens(firstRest)];
     for (let j = i + 1; j < bodyLines.length; j++) {
       const next = bodyLines[j].trim();
       if (!next) continue;
-      collected.push(next);
+      imageIndexes.push(...extractImageIndexesFromLine(next));
+      collected.push(stripImageTokens(next));
     }
-    return collected.filter(Boolean).join(" ").trim();
+    return { text: collected.filter(Boolean).join(" ").trim(), imageIndexes };
   }
-  return "";
+  return { text: "", imageIndexes: [] };
 };
 
 RTFConventions.detectExplanationLabelCandidates = function (text) {
@@ -114,10 +152,11 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
 
   const lines = blockText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-  const { text: question, hasImage } = RTFConventions.assembleQuestionText(lines, convention);
+  const { text: question, hasImage: stemHasImage, imageIndexes: stemImageIndexes } = RTFConventions.assembleQuestionText(lines, convention);
 
   const optionLines = lines.filter((l) => convention.optionLinePattern.test(l));
-  const options = optionLines.map((l) => l.replace(convention.optionPrefixPattern, "").trim());
+  const optionImageIndexes = optionLines.map((l) => extractImageIndexesFromLine(l));
+  const options = optionLines.map((l) => stripImageTokens(l.replace(convention.optionPrefixPattern, "").trim()));
 
   const escapedAnswerLabels = labels.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const answerRegexBody = "^(?:" + escapedAnswerLabels.join("|") + ")\\s*[:\uff1a]\\s*(.*)$";
@@ -143,7 +182,11 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
     .map((c) => c.charCodeAt(0) - 65);
 
   const escapedExplLabels = explLabels.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const explanation = RTFConventions.findExplanation(lines, escapedExplLabels);
+  const explResult = RTFConventions.findExplanation(lines, escapedExplLabels);
+  const explanation = explResult.text;
+  const explanationImageIndexes = explResult.imageIndexes;
+
+  const hasImage = stemHasImage || optionImageIndexes.some((arr) => arr.length > 0) || explanationImageIndexes.length > 0;
 
   const needsReview =
     options.length === 0 ||
@@ -162,6 +205,14 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
     source: { file: filename, block: idx },
     needs_review: needsReview,
     _hasImage: hasImage,
+    // Raw \pict indexes per field, resolved against the RTF source's `images[]` array
+    // (produced by Parsers.extractPictImages / stripRTF) later in the pipeline. Kept
+    // separate from question_image/option_images (which are single-value slots used by
+    // the existing PDF-screenshot path) until core.js/scriptjs-export.js are updated to
+    // consume multi-image fields (issue #20).
+    stem_image_indexes: stemImageIndexes,
+    option_image_indexes: optionImageIndexes,
+    explanation_image_indexes: explanationImageIndexes,
   };
 };
 
@@ -181,8 +232,6 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
 // control-word stripper with NO replacement, silently gluing "Q1" directly onto the next
 // word with zero separator (e.g. "Q1A recent zero-day vulnerability...").  Normalize \line
 // to \par before calling the original stripRTF so it gets converted to a real newline.
-// NOTE: this remains as a fallback path -- see the rtf.js-based extraction below, which
-// is used instead whenever the library successfully loads.
 (function () {
   const originalStripRTF = Parsers.stripRTF;
   Parsers.stripRTF = function (rtfRaw) {
@@ -191,17 +240,23 @@ Parsers.parseBlockToQuestionV2 = function (blockText, filename, idx, answerLabel
   };
 })();
 
-// ================= rtf.js-based extraction (real parser) =================
-// Replaces the "reconstruct line breaks from raw RTF control words via regex" role
-// that stripRTF played, with a real spec-compliant parser (rtf.js). Everything below
-// this point in the file (RTFConventions object, parseBlockToQuestionV2, the delimiter
-// wrapper, answer/explanation extraction) is completely unchanged and still fully
-// regex-driven -- rtf.js only replaces the "did I correctly find every line break"
-// job, not the "does this line look like a delimiter/option/answer" job.
+// ================= rtf.js-based extraction: DISABLED for image-bearing RTF =================
+// Historically this block replaced the "reconstruct line breaks from raw RTF control
+// words via regex" role that stripRTF played, with a real spec-compliant parser (rtf.js).
 //
-// Falls back to the existing regex-based Parsers.extractRawText path (with the \line
-// fix above) if the library fails to load or throws, so a CDN hiccup degrades
-// gracefully instead of breaking RTF import entirely.
+// UPDATE (issue #20): \pict image extraction requires Parsers.stripRTF's raw-text
+// scanning (Parsers.extractPictImages). The rtf.js DOM-rendering path below discards
+// embedded images entirely -- verified empirically against a real image-bearing RTF
+// sample (CS0-003 dump, \dibitmap0 pictures): rtf.js rendered 10008 paragraphs with
+// ZERO <img>/<svg>/<canvas> nodes. Routing RTF files through rtf.js therefore silently
+// drops every image, with no error and no fallback trigger (rtf.js loads and "succeeds"
+// fine -- it just never surfaces the pictures).
+//
+// Rather than removing this code (rtf.js may still be useful for future non-image text
+// reflow edge cases), Parsers.extractRawText is now left un-overridden for "rtf": every
+// RTF file goes through the regex-based fallback path (with the \line fix above), which
+// is the only path wired up to image extraction. The rtf.js loading/rendering functions
+// remain defined below (unused) in case a future issue revisits this trade-off.
 
 const RTFJS_CDN_BASE = "https://unpkg.com/rtf.js@3.0.7/dist/";
 
@@ -258,25 +313,3 @@ RTFConventions.rtfBufferToPlainText = async function (arrayBuffer) {
 
   return paragraphLines.join("\n");
 };
-
-(function () {
-  const originalExtractRawText = Parsers.extractRawText;
-  Parsers.extractRawText = async function (file, ext) {
-    if (ext === "rtf") {
-      try {
-        const ready = await loadRTFLibraries();
-        if (ready && window.RTFJS) {
-          const buffer = await file.arrayBuffer();
-          const plainText = await RTFConventions.rtfBufferToPlainText(buffer);
-          return { fullText: plainText, pageBoundaries: [], pageFrequency: {}, numPages: 0, filename: file.name };
-        }
-        console.warn("rtf.js failed to load; falling back to regex-based RTF extraction.");
-      } catch (e) {
-        console.warn("rtf.js parsing failed; falling back to regex-based RTF extraction:", e);
-      }
-    }
-    return originalExtractRawText(file, ext);
-  };
-})();
-
-loadRTFLibraries();
