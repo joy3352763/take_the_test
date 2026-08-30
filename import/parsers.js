@@ -294,6 +294,7 @@ Parsers.stripRTF = function (rtfRaw) {
   const plainText = textWithPlaceholders
     .replace(/\\par[d]?/g, "\n")
     .replace(/\{\\[^}]*\}/g, "")
+    .replace(/\\'0[da]/gi, "\n")
     .replace(/\\'[0-9a-f]{2}/gi, "")
     .replace(/\\[a-zA-Z]+-?\d* ?/g, "")
     .replace(/[{}]/g, "");
