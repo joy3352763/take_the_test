@@ -52,6 +52,8 @@ Core.routeImages = function (dataUris, questionId, slot, assetBag) {
   );
 };
 
+const OPTION_LETTERS = ["A", "B", "C", "D"];
+
 // ---------- 批次處理一組題目 ----------
 Core.processQuestions = function (questions) {
   const assetBag = {};
@@ -62,6 +64,22 @@ Core.processQuestions = function (questions) {
     q.option_images = q.option_images.map((img, i) =>
       Core.routeImage(img, q.id, `opt${i}`, assetBag)
     );
+
+    // Multi-image fields populated by main.js for RTF sources (issue #20): resolved data
+    // URIs from stem_image_indexes/option_image_indexes/explanation_image_indexes, staged
+    // as *_paths_raw before routing. Only present for image-bearing RTF questions; absent
+    // (undefined) for CSV/XLSX/DOCX/PDF-sourced questions, so this is a no-op for those.
+    if (q.img_stem_paths_raw) {
+      q.img_stem_paths = Core.routeImages(q.img_stem_paths_raw, q.id, "stem", assetBag);
+    }
+    if (q.img_option_paths_raw) {
+      q.img_option_paths = q.img_option_paths_raw.map((arr, i) =>
+        Core.routeImages(arr, q.id, "opt" + (OPTION_LETTERS[i] || i), assetBag)
+      );
+    }
+    if (q.img_explanation_paths_raw) {
+      q.img_explanation_paths = Core.routeImages(q.img_explanation_paths_raw, q.id, "explain", assetBag);
+    }
 
     const errors = Core.validate(q);
     if (errors.length) {
