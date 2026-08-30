@@ -11,6 +11,13 @@ function getOptionKeys(question) {
         .sort((a, b) => parseInt(a.replace('選項', ''), 10) - parseInt(b.replace('選項', ''), 10));
 }
 
+// 依 issue #24/#27 定案：独立小函式，回傳 <img> HTML 字串；#27 之後若要做行內定位標記，
+// 只需換掉這個函式的內部實作，不需改動下面三個呼叫點（displayQuestion/createOptionElement/getExplanation）。
+function renderQuestionImage(path) {
+    if (!path) return '';
+    return `<img src="${path}" class="question-image" loading="lazy" alt="">`;
+}
+
 const THEME_PRESETS = {
     default: { bg: '#f3f4f6', card: '#ffffff', text: '#1f2937' },
     dark: { bg: '#111827', card: '#1f2937', text: '#f9fafb' },
@@ -123,7 +130,8 @@ let isSpeaking = false;
 let isTranslationVisible = false;
 
 function getExplanation(question) {
-    return question.解析 || question.詳解 || '此題無提供詳解。';
+    const text = question.解析 || question.詳解 || '此題無提供詳解。';
+    return text + renderQuestionImage(question.img_explain);
 }
 
 function formatCorrectAnswer(question, { markCorrectInputs = false } = {}) {
@@ -670,7 +678,7 @@ startExamBtn.addEventListener('click', () => {
         let questionPool = getFilteredPool(subject, questionType);
 
         if (questionPool.length === 0) {
-            showError('所選科目或題型沒有可用的題目 (或被篩選條件過濾完)。');
+            showError('所選科目或題型沒有可用的題目 (或被篩選條件過濸完)。');
             return;
         }
 
@@ -853,7 +861,7 @@ function displayQuestion() {
 
     const sourceTag = question._source ? `<span class="inline-block px-2 py-1 rounded mb-2 mr-2 border text-xs" style="background-color: var(--theme-info-bg); color: var(--theme-info-text); border-color: var(--theme-info-border);">來源：${question._source}</span>` : '';
 
-    questionTextEl.innerHTML = `${sourceTag}<br><span class="font-bold mr-2 theme-text-muted">${questionNumber}/${examQuestions.length}</span> ${question.題目}`;
+    questionTextEl.innerHTML = `${sourceTag}<br><span class="font-bold mr-2 theme-text-muted">${questionNumber}/${examQuestions.length}</span> ${question.題目}${renderQuestionImage(question.img_stem)}`;
     optionsContainer.innerHTML = '';
     practiceFeedback.classList.add('hidden');
 
@@ -864,9 +872,11 @@ function displayQuestion() {
         createOptionElement('O', '是', 'O', 'radio');
         createOptionElement('X', '非', 'X', 'radio');
     } else {
+        const optImgLetters = 'ABCD';
         getOptionKeys(question).forEach((optionKey) => {
             const i = parseInt(optionKey.replace('選項', ''), 10);
-            createOptionElement(i, question[optionKey], i, inputType);
+            const imagePath = i >= 1 && i <= 4 ? question[`img_opt${optImgLetters[i - 1]}`] : null;
+            createOptionElement(i, question[optionKey], i, inputType, imagePath);
         });
     }
 
@@ -912,7 +922,7 @@ function displayQuestion() {
     }
 }
 
-function createOptionElement(value, text, dataValue, inputType) {
+function createOptionElement(value, text, dataValue, inputType, imagePath) {
     const label = document.createElement('label');
     label.className = 'flex items-center space-x-3 p-4 rounded-lg theme-border border cursor-pointer transition duration-200 ease-in-out bg-card hover:opacity-80';
 
@@ -941,6 +951,12 @@ function createOptionElement(value, text, dataValue, inputType) {
 
     label.appendChild(input);
     label.appendChild(span);
+    if (imagePath) {
+        const imgWrap = document.createElement('div');
+        imgWrap.className = 'option-image-wrap';
+        imgWrap.innerHTML = renderQuestionImage(imagePath);
+        label.appendChild(imgWrap);
+    }
     optionsContainer.appendChild(label);
 }
 
@@ -1077,7 +1093,7 @@ function endExam() {
     resultsSummaryEl.textContent = `您答對了 ${correctCount} 題，總共 ${totalQuestions} 題。正確率為 ${accuracy.toFixed(2)}%。`;
 
     if (accuracy >= passRate) {
-        passFailMessageEl.textContent = '恭喜您，通過測驗！';
+        passFailMessageEl.textContent = '恢喜您，通過測驗！';
         passFailMessageEl.style.color = '#10B981';
     } else {
         passFailMessageEl.textContent = '很遺憾，您未通過測驗。';
