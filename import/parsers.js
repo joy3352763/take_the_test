@@ -131,19 +131,176 @@ Parsers.parseCSV = function (text, filename) {
   });
 };
 
+// \pict 目的地群組的格式控制字对照表
+Parsers.PICT_FORMAT_MAP = {
+  pngblip: "png",
+  jpegblip: "jpg",
+  emfblip: "emf",
+  wmetafile: "wmf",
+  macpict: "pict",
+  dibitmap: "bmp",
+  wbitmap: "bmp",
+};
+
+Parsers.detectPictFormat = function (pictGroupText) {
+  const keys = Object.keys(Parsers.PICT_FORMAT_MAP);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (pictGroupText.indexOf("\\" + key) !== -1) {
+      return {
+        control: key,
+        ext: Parsers.PICT_FORMAT_MAP[key],
+        isVector: key === "emfblip" || key === "wmetafile" || key === "macpict",
+        needsBmpHeader: key === "dibitmap" || key === "wbitmap",
+      };
+    }
+  }
+  return { control: null, ext: "bin", isVector: false, needsBmpHeader: false };
+};
+
+Parsers.hexToBytes = function (hexString) {
+  const clean = hexString.replace(/[^0-9a-fA-F]/g, "");
+  const byteCount = clean.length >> 1;
+  const bytes = new Uint8Array(byteCount);
+  for (let i = 0; i < byteCount; i++) {
+    bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+  }
+  return bytes;
+};
+
+Parsers.bytesToBase64 = function (bytes) {
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+};
+
+// 保留舊 API 相容(仍可直接 hex→base64，不經過 BMP 补頭)
+Parsers.hexToBase64 = function (hexString) {
+  return Parsers.bytesToBase64(Parsers.hexToBytes(hexString));
+};
+
+// \dibitmap/\wbitmap 控制字的資料是 DIB(Device Independent Bitmap)，只有 BMP 檔本體，欠一個 14 bytes 的 BMP 檔案頭，
+// 需自行補上檔頭才能當成完整 .bmp 顯示。根據 BITMAPINFOHEADER(前40bytes)的 biBitCount/biClrUsed 推導調色盤大小以計算像素資料偏移。
+Parsers.dibToBmp = function (dibBytes) {
+  const headerSize = dibBytes[0] | (dibBytes[1] << 8) | (dibBytes[2] << 16) | (dibBytes[3] << 24);
+  const bitCount = dibBytes[14] | (dibBytes[15] << 8);
+  let biClrUsed = dibBytes[32] | (dibBytes[33] << 8) | (dibBytes[34] << 16) | (dibBytes[35] << 24);
+  let paletteEntries = biClrUsed;
+  if (!paletteEntries && bitCount > 0 && bitCount <= 8) {
+    paletteEntries = 1 << bitCount;
+  }
+  const paletteSize = (paletteEntries || 0) * 4;
+  const pixelDataOffset = 14 + headerSize + paletteSize;
+  const fileSize = 14 + dibBytes.length;
+
+  const bmp = new Uint8Array(fileSize);
+  bmp[0] = 0x42;
+  bmp[1] = 0x4d;
+  bmp[2] = fileSize & 0xff;
+  bmp[3] = (fileSize >> 8) & 0xff;
+  bmp[4] = (fileSize >> 16) & 0xff;
+  bmp[5] = (fileSize >> 24) & 0xff;
+  bmp[6] = 0;
+  bmp[7] = 0;
+  bmp[8] = 0;
+  bmp[9] = 0;
+  bmp[10] = pixelDataOffset & 0xff;
+  bmp[11] = (pixelDataOffset >> 8) & 0xff;
+  bmp[12] = (pixelDataOffset >> 16) & 0xff;
+  bmp[13] = (pixelDataOffset >> 24) & 0xff;
+  bmp.set(dibBytes, 14);
+  return bmp;
+};
+
+// 以括弧深度扫描找出完整的 {\pict...} 目的地群組，不依賴現有 /\{\\pict[\s\S]*?\}\}/ 這種假設固定兩層 } 的 regex，
+// 因為實际 RTF 匯出工具包裝 \pict 的層數不一定，固定假設會漏抓圖。
+Parsers.findPictGroups = function (rtfRaw) {
+  const groups = [];
+  const marker = "{\\pict";
+  let searchFrom = 0;
+  while (true) {
+    const start = rtfRaw.indexOf(marker, searchFrom);
+    if (start === -1) break;
+    let depth = 0;
+    let end = -1;
+    let i = start;
+    for (; i < rtfRaw.length; i++) {
+      const ch = rtfRaw[i];
+      if (ch === "\\") {
+        i++;
+        continue;
+      }
+      if (ch === "{") {
+        depth++;
+      } else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    if (end === -1) break;
+    groups.push({ start, end, text: rtfRaw.slice(start, end) });
+    searchFrom = end;
+  }
+  return groups;
+};
+
+// 擷取圖片資料並換成帶編號的 placeholder。這個 placeholder 會跟著文字一起流過
+// 後面的 block 切分與欄位判斷(rtf-conventions.js)，不需要額外維護「圖片在原始 RTF 位置」這一套独立坐標系。
+Parsers.extractPictImages = function (rtfRaw) {
+  const images = [];
+  const groups = Parsers.findPictGroups(rtfRaw);
+  if (groups.length === 0) {
+    return { images, textWithPlaceholders: rtfRaw };
+  }
+  let result = "";
+  let cursor = 0;
+  groups.forEach((group) => {
+    result += rtfRaw.slice(cursor, group.start);
+    const index = images.length;
+    const format = Parsers.detectPictFormat(group.text);
+    const hexPayload = group.text
+      .replace(/\\[a-zA-Z]+-?\d*\s?/g, "")
+      .replace(/[{}]/g, "")
+      .trim();
+    let base64 = "";
+    const ext = format.ext;
+    try {
+      const rawBytes = Parsers.hexToBytes(hexPayload);
+      if (format.needsBmpHeader) {
+        base64 = Parsers.bytesToBase64(Parsers.dibToBmp(rawBytes));
+      } else {
+        base64 = Parsers.bytesToBase64(rawBytes);
+      }
+    } catch (e) {
+      console.warn("pict image decode failed for image " + index, e);
+    }
+    images.push({ index, format: format.control, ext, isVector: format.isVector, base64 });
+    result += "[IMAGE:" + index + "]";
+    cursor = group.end;
+  });
+  result += rtfRaw.slice(cursor);
+  return { images, textWithPlaceholders: result };
+};
+
 Parsers.stripRTF = function (rtfRaw) {
-  const pictBlocks = (rtfRaw.match(/\{\\pict[\s\S]*?\}\}/g) || []).length;
-  const plainText = rtfRaw
-    .replace(/\{\\pict[\s\S]*?\}\}/g, "[IMAGE]")
+  const { images, textWithPlaceholders } = Parsers.extractPictImages(rtfRaw);
+  const pictBlocks = images.length; // 維持原本 pictBlocks 的語意(圖片數量)
+  const plainText = textWithPlaceholders
     .replace(/\\par[d]?/g, "\n")
     .replace(/\{\\[^}]*\}/g, "")
     .replace(/\\'[0-9a-f]{2}/gi, "")
     .replace(/\\[a-zA-Z]+-?\d* ?/g, "")
     .replace(/[{}]/g, "");
-  return { plainText, pictBlocks };
+  return { plainText, pictBlocks, images };
 };
 
-// 只自動過濾hex指紋碼，其他重複文字都保留在fullText裡，區間掛頁頻率統計回傳給main.js讓使用者確認是否要手動濾掉
+// 只自動過濵hex指紋碼，其他重複文字都保留在fullText裡，區間掛頁频率統計回傳給main.js讓使用者確認是否要手動濯掉
 Parsers.extractPDFText = async function (arrayBuffer, filename) {
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const numPages = pdf.numPages;
@@ -207,7 +364,7 @@ Parsers.extractPDFText = async function (arrayBuffer, filename) {
   return { fullText, pageBoundaries, pageFrequency, numPages, filename };
 };
 
-// 偵測疑似浮水印/噪音的候選字串，只列出供使用者確認，不自動過濾
+// 偵測疑似浮水印/噪音的候選字串，只列出供使用者確認，不自動過濵
 // 排除長度太短的字串（如選項字母"A."）避免誤列入候選
 Parsers.detectNoiseCandidates = function (pageFrequency, numPages) {
   const threshold = Math.max(3, Math.ceil(numPages * 0.3));
@@ -218,7 +375,7 @@ Parsers.detectNoiseCandidates = function (pageFrequency, numPages) {
     .map(([text, count]) => ({ text, count, ratio: count / numPages }));
 };
 
-// 從fullText裡寮除使用者勾選要濾掉的字串
+// 從fullText裡剔除使用者勾選要濯掉的字串
 Parsers.removeNoiseStrings = function (text, noiseStrings) {
   let result = text;
   (noiseStrings || []).forEach((s) => {
