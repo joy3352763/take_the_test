@@ -301,4 +301,12 @@ window.getTextSources = () => textSources;
   const s3 = document.createElement("script");
   s3.src = "version.js";
   document.body.appendChild(s3);
+
+  const s4 = document.createElement("script");
+  s4.src = "db.js";
+  document.body.appendChild(s4);
+
+  const s5 = document.createElement("script");
+  s5.src = "db-bridge.js";
+  document.body.appendChild(s5);
 })();
