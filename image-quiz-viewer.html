@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>圖片題瀏覽器 - take_the_test</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/papaparse@5.3.0/papaparse.min.js"></script>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { font-family: 'Inter', sans-serif; max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  .hint { color: var(--theme-text-muted, #666); font-size: 0.9rem; margin-bottom: 16px; }
+  #drop-zone {
+    border: 2px dashed var(--theme-border, #ccc);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  #zip-input { display: block; margin: 12px auto 0; }
+  #status { margin: 12px 0; font-size: 0.95rem; white-space: pre-wrap; }
+  #status.error { color: #b91c1c; }
+  #status.ok { color: #15803d; }
+  #viewer { display: none; }
+  .q-card {
+    background: var(--theme-card, #fff);
+    border: 1px solid var(--theme-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .q-nav { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; }
+  .q-nav button {
+    padding: 10px 18px;
+    border-radius: 9999px;
+    border: none;
+    background: #3b82f6;
+    color: #fff;
+    font-weight: bold;
+  }
+  .q-nav button:disabled { background: #cbd5e1; }
+  .q-index-input { width: 60px; text-align: center; }
+  .q-image {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+  }
+  .opt-list { list-style: none; padding: 0; margin: 8px 0; }
+  .opt-list li {
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  .opt-list li.correct { background: #f0fdf4; border-color: #bbf7d0; }
+  .explain-box {
+    margin-top: 12px;
+    padding: 10px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+  }
+  #reveal-btn { margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>📷 圖片題瀏覽器</h1>
+<p class="hint">
+  用手機直接上傳 <code>import/review.js</code> 匯出的 <code>batch_*.zip</code>（可一次選多個），
+  會在瀏覽器裡直接把圖片解壓出來顯示，不需要電腦、不需要安装任何東西、不需要部署。<br>
+  這是給「有圖片的題目」用的独立瀏覽頁面，跟原本的 <code>index.html</code> 刷題程式互不影響、可以分開使用。
+</p>
+
+<div id="drop-zone">
+  <div>📦 選擇一個或多個 batch_*.zip 檔案</div>
+  <input type="file" id="zip-input" accept=".zip" multiple>
+</div>
+
+<div id="status"></div>
+
+<div id="viewer">
+  <div class="q-nav">
+    <button id="prev-btn">← 上一題</button>
+    <span>
+      第 <input type="number" id="q-index-input" class="q-index-input" min="1" value="1"> / <span id="q-total">0</span> 題
+    </span>
+    <button id="next-btn">下一題 →</button>
+  </div>
+  <div id="q-card" class="q-card"></div>
+</div>
+
+<script>
+(function () {
+  const zipInput = document.getElementById('zip-input');
+  const statusEl = document.getElementById('status');
+  const viewerEl = document.getElementById('viewer');
+  const qCardEl = document.getElementById('q-card');
+  const qIndexInput = document.getElementById('q-index-input');
+  const qTotalEl = document.getElementById('q-total');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+
+  let questions = [];
+  let currentIndex = 0;
+  const activeObjectUrls = [];
+
+  function setStatus(msg, kind) {
+    statusEl.textContent = msg;
+    statusEl.className = kind || '';
+  }
+
+  function stripBOM(str) {
+    return str.charCodeAt(0) === 0xfeff ? str.slice(1) : str;
+  }
+
+  function revokeAllObjectUrls() {
+    while (activeObjectUrls.length) {
+      URL.revokeObjectURL(activeObjectUrls.pop());
+    }
+  }
+
+  async function resolveImageField(zip, path) {
+    if (!path) return '';
+    const entry = zip.file(path);
+    if (!entry) return '';
+    const blob = await entry.async('blob');
+    const url = URL.createObjectURL(blob);
+    activeObjectUrls.push(url);
+    return url;
+  }
+
+  const IMG_FIELDS = ['img_stem', 'img_optA', 'img_optB', 'img_optC', 'img_optD', 'img_explain'];
+
+  zipInput.addEventListener('change', async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    revokeAllObjectUrls();
+    questions = [];
+    currentIndex = 0;
+    viewerEl.style.display = 'none';
+    setStatus('讀取中…');
+
+    let totalWarnings = 0;
+
+    for (const file of files) {
+      try {
+        const buf = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(buf);
+
+        const csvEntryName = Object.keys(zip.files).find((name) => /\.csv$/i.test(name));
+        if (!csvEntryName) {
+          totalWarnings++;
+          console.warn(`${file.name} 裡沒找到 CSV`);
+          continue;
+        }
+
+        const csvText = stripBOM(await zip.file(csvEntryName).async('string'));
+        const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+        if (parsed.errors && parsed.errors.length) {
+          console.warn(`${file.name} 的 CSV 解析警告：`, parsed.errors);
+        }
+
+        for (const row of parsed.data) {
+          if (!row.題目) continue;
+          for (const field of IMG_FIELDS) {
+            const rawPath = row[field];
+            if (rawPath) {
+              row[field] = await resolveImageField(zip, rawPath);
+              if (!row[field]) {
+                totalWarnings++;
+                console.warn(`${file.name}: ${field}="${rawPath}" 找不到對應圖檔`);
+              }
+            }
+          }
+          row._sourceFile = file.name;
+          questions.push(row);
+        }
+      } catch (err) {
+        totalWarnings++;
+        console.error(`處理 ${file.name} 時發生錯誤：`, err);
+        setStatus(`處理 ${file.name} 時發生錯誤：${err.message}`, 'error');
+      }
+    }
+
+    questions.sort((a, b) => (parseInt(a.題號, 10) || 0) - (parseInt(b.題號, 10) || 0));
+
+    if (questions.length === 0) {
+      setStatus('沒有成功載入任何題目，請確認選的是 batch_*.zip。', 'error');
+      return;
+    }
+
+    setStatus(
+      `已載入 ${questions.length} 題（來自 ${files.length} 個檔案）` +
+        (totalWarnings > 0 ? `，有 ${totalWarnings} 個警告（詳見瀏覽器 console）。` : '。'),
+      'ok'
+    );
+
+    currentIndex = 0;
+    qTotalEl.textContent = questions.length;
+    viewerEl.style.display = 'block';
+    renderQuestion();
+  });
+
+  function optionsToAnswerIndices(question) {
+    return (question.答案 || '')
+      .toString()
+      .split('.')
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n));
+  }
+
+  function renderQuestion() {
+    const q = questions[currentIndex];
+    if (!q) return;
+
+    qIndexInput.value = currentIndex + 1;
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex === questions.length - 1;
+
+    const correctIndices = optionsToAnswerIndices(q);
+    const optionKeys = Object.keys(q)
+      .filter((k) => /^選項\d+$/.test(k))
+      .sort((a, b) => parseInt(a.replace('選項', ''), 10) - parseInt(b.replace('選項', ''), 10));
+    const imgOptLetters = 'ABCD';
+
+    let html = `<div style="font-weight:bold;margin-bottom:6px;">第 ${q.題號 || currentIndex + 1} 題（${q.題型 || '選擇題'}）</div>`;
+    html += `<div>${q.題目 || ''}</div>`;
+    if (q.img_stem) html += `<img class="q-image" src="${q.img_stem}" alt="題幹圖">`;
+
+    html += '<ol class="opt-list">';
+    optionKeys.forEach((key) => {
+      const i = parseInt(key.replace('選項', ''), 10);
+      const isCorrect = correctIndices.includes(i);
+      const imgField = i >= 1 && i <= 4 ? `img_opt${imgOptLetters[i - 1]}` : null;
+      html += `<li class="${isCorrect ? 'correct' : ''}">${i}. ${q[key]}${isCorrect ? ' ✅' : ''}`;
+      if (imgField && q[imgField]) {
+        html += `<img class="q-image" src="${q[imgField]}" alt="選項${i}圖">`;
+      }
+      html += '</li>';
+    });
+    html += '</ol>';
+
+    html += `<button id="reveal-btn">💡 顯示解析</button>`;
+    html += `<div id="explain-box" class="explain-box" style="display:none;">
+      ${q.解析 || q.詳解 || '此題無提供詳解。'}
+      ${q.img_explain ? `<img class="q-image" src="${q.img_explain}" alt="解析圖">` : ''}
+    </div>`;
+
+    qCardEl.innerHTML = html;
+
+    document.getElementById('reveal-btn').addEventListener('click', () => {
+      document.getElementById('explain-box').style.display = 'block';
+    });
+  }
+
+  prevBtn.addEventListener('click', () => {
+    if (currentIndex > 0) {
+      currentIndex--;
+      renderQuestion();
+    }
+  });
+  nextBtn.addEventListener('click', () => {
+    if (currentIndex < questions.length - 1) {
+      currentIndex++;
+      renderQuestion();
+    }
+  });
+  qIndexInput.addEventListener('change', () => {
+    const val = parseInt(qIndexInput.value, 10);
+    if (!isNaN(val) && val >= 1 && val <= questions.length) {
+      currentIndex = val - 1;
+      renderQuestion();
+    }
+  });
+
+  window.addEventListener('beforeunload', revokeAllObjectUrls);
+})();
+</script>
+
+</body>
+</html>
